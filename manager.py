@@ -7,11 +7,13 @@ Endpoints:
     POST /stop/{step}          — Kill a running step
 
 Start with:
-    python -m uvicorn manager:app --reload --port 8000
+    python manager.py
 """
 
 import asyncio
 import sys
+
+import uvicorn
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -105,8 +107,6 @@ async def start_step(step: str, headless: bool = Query(False)):
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
         cwd=str(script.parent),
     )
 
@@ -146,3 +146,7 @@ async def stop_step(step: str):
     state.status = "stopped"
     state.exit_code = state.process.returncode
     return StepResponse(step=step, status="stopped", exit_code=state.exit_code)
+
+
+if __name__ == "__main__":
+    uvicorn.run("manager:app", host="0.0.0.0", port=8000)

@@ -1,0 +1,20 @@
+# Study Tracker Log v1
+# S=session_id, T=time(HH:MM:SS EST), E=event_type
+# Events: SS=start SE=end FL=face_lost FF=face_found LA=look_away LB=look_back
+S,T,E
+1,17:24:39,SS
+1,17:24:49,LA
+1,17:24:49,FL
+1,17:24:50,FF
+1,17:24:51,FL
+1,17:24:52,FF
+1,17:24:52,LA
+1,17:24:54,LB
+1,17:24:59,LA
+1,17:25:04,LB
+1,17:25:07,LA
+1,17:25:08,FL
+1,17:25:09,FF
+1,17:25:09,LA
+1,17:25:11,FL
+1,17:25:12,FF

@@ -1,0 +1,4 @@
+timestamp,filename,has_notification,urgency,source,sender,summary,error
+17_25_01,capture_17_25_01.png,True,Low,iMessage,Nicholas McDowell,A message from Nicholas McDowell saying 'Hello'.,
+17_25_08,capture_17_25_08.png,False,,,,,
+17_25_24,capture_17_25_24.png,True,High,Instagram,Nick McDowell,A message from Nick McDowell on Instagram saying 'EMERGENCY PLEASE HELP'.,

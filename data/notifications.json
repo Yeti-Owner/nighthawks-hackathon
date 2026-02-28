@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "timestamp": "capture_13_57_10_ON",
+    "filename": "capture_13_57_10_ON.png",
+    "has_notification": "True",
+    "urgency": "Low",
+    "source": "WhatsApp",
+    "sender": "John Doe",
+    "summary": "Hey, how is it going?",
+    "error": ""
+  },
+  {
+    "id": 2,
+    "timestamp": "capture_13_58_05_ON",
+    "filename": "capture_13_58_05_ON.png",
+    "has_notification": "False",
+    "urgency": "High",
+    "source": "",
+    "sender": "",
+    "summary": "",
+    "error": ""
+  },
+  {
+    "id": 3,
+    "timestamp": "capture_10_48_45_ON",
+    "filename": "capture_10_48_45_ON.png",
+    "has_notification": "True",
+    "urgency": "Medium",
+    "source": "Snapchat",
+    "sender": "Leah",
+    "summary": "Leah sent you a Snap.",
+    "error": ""
+  }
+]

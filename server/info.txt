@@ -1,0 +1,40 @@
+========================================
+  VULTR SERVER SETUP — CSV Ingestion
+========================================
+
+SERVER: 45.32.173.69
+USER:   linuxuser
+
+── 1. SSH into the server ─────────────────────────────────────────
+ssh linuxuser@45.32.173.69
+
+── 2. Install UV (skip if already installed) ──────────────────────
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+── 3. Create project and install dependencies ─────────────────────
+mkdir -p ~/csvserver && cd ~/csvserver
+uv init --no-workspace
+uv add fastapi uvicorn python-multipart
+
+── 4. Copy server.py to the server (run from LOCAL machine) ───────
+scp server.py linuxuser@45.32.173.69:~/csvserver/server.py
+
+── 5. Start the server (on the Vultr box) ─────────────────────────
+cd ~/csvserver
+uv run python server.py
+
+   Server will listen on http://0.0.0.0:8000
+   Health check: curl http://45.32.173.69:8000/health
+
+── 6. Open firewall port 8000 (if needed) ─────────────────────────
+sudo ufw allow 8000/tcp
+
+── 7. Send CSVs from LOCAL machine ────────────────────────────────
+pip install requests python-dotenv
+python send_csv.py
+
+── 8. Retrieve data ───────────────────────────────────────────────
+curl http://45.32.173.69:8000/data/notifications
+curl http://45.32.173.69:8000/data/session_log
+curl http://45.32.173.69:8000/data/pickedup

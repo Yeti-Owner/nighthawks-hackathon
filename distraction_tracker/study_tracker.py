@@ -19,6 +19,7 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"          # Hide TF info/warning logs
 os.environ["GLOG_minloglevel"] = "3"               # Hide MediaPipe C++ warnings
 
+import argparse
 import contextlib
 import csv
 import json
@@ -111,7 +112,11 @@ TZ = ZoneInfo("America/New_York")
 # ──────────────────────────────────────────────────────────────────────────────
 # DISPLAY SETTINGS
 # ──────────────────────────────────────────────────────────────────────────────
-SHOW_PREVIEW = True          # Set False to run headless (no OpenCV window)
+SHOW_PREVIEW = False          # Set False to run headless (no OpenCV window)
+
+# CLI override: --headless sets SHOW_PREVIEW to False
+if "--headless" in sys.argv:
+    SHOW_PREVIEW = False
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗

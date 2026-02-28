@@ -491,7 +491,7 @@ def main():
 
             if key == ord('q') or key == 27:  # Q or Escape
                 print("  Calibration cancelled.")
-                return
+                sys.exit(1)
 
             if key == ord(' ') and face_detected:
                 captures[step_name] = (cur_yaw, cur_pitch, cur_roll)
@@ -501,7 +501,7 @@ def main():
 
     except KeyboardInterrupt:
         print("  Calibration interrupted.")
-        return
+        sys.exit(1)
     finally:
         cap.release()
         cv2.destroyAllWindows()
@@ -524,6 +524,7 @@ def main():
     print("  Calibration complete.")
     print(f"  Configuration saved to: {output_file}")
     print()
+    sys.exit(0)
 
 
 if __name__ == "__main__":

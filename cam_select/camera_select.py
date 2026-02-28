@@ -389,6 +389,9 @@ class App:
 
         self.status.config(text=f"✔  Saved to {CONFIG_FILE}", fg=POSITIVE)
 
+        # Auto-close the window after a short delay so the process exits
+        self.root.after(500, lambda: (self.cleanup(), self.root.destroy()))
+
     # ── Render loop ───────────────────────────────────────────────────────────
 
     def _tick(self):

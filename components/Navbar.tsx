@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 
 const navLinks = [
     { href: '/', label: 'Overview' },
-    { href: '/#features', label: 'Features' },
     { href: '/stats', label: 'Stats' },
 ];
 
@@ -74,10 +73,10 @@ export default function Navbar() {
                 ))}
             </div>
 
-            {/* CTA Button */}
-            <Link href="/stats" className="btn-primary" style={{ height: 40, padding: '0 24px', fontSize: 11 }}>
-                Start Tracking
-            </Link>
+            {/* CTA Button — Auth0 integration pending */}
+            <button className="btn-primary" style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer' }}>
+                Login / Register
+            </button>
         </nav>
     );
 }

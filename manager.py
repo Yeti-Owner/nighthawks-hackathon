@@ -83,9 +83,19 @@ class StepResponse(BaseModel):
     status: str
     exit_code: int | None = None
 
+class UserRequest(BaseModel):
+    user_id: str
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@app.post("/user")
+async def set_user(req: UserRequest):
+    """Save the authenticated Auth0 user ID to user.txt"""
+    with open(BASE_DIR / "user.txt", "w") as f:
+        f.write(req.user_id)
+    return {"status": "ok", "user_id": req.user_id}
 
 @app.post("/start/{step}", response_model=StepResponse)
 async def start_step(step: str, headless: bool = Query(False)):

@@ -18,7 +18,6 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["GLOG_minloglevel"] = "3"
 
-import contextlib
 import sys
 import time
 from pathlib import Path
@@ -139,28 +138,6 @@ CALIBRATION_STEPS = [
 # HELPERS
 # ──────────────────────────────────────────────────────────────────────────────
 
-@contextlib.contextmanager
-def suppress_cpp_output():
-    """Suppress C++ stdout/stderr by temporarily redirecting file descriptors."""
-    try:
-        fd_out = sys.stdout.fileno()
-        fd_err = sys.stderr.fileno()
-    except Exception:
-        yield
-        return
-
-    with open(os.devnull, 'w') as devnull:
-        old_stdout = os.dup(fd_out)
-        old_stderr = os.dup(fd_err)
-        os.dup2(devnull.fileno(), fd_out)
-        os.dup2(devnull.fileno(), fd_err)
-        try:
-            yield
-        finally:
-            os.dup2(old_stdout, fd_out)
-            os.dup2(old_stderr, fd_err)
-            os.close(old_stdout)
-            os.close(old_stderr)
 
 
 def estimate_head_pose(landmarks, w, h):
@@ -397,13 +374,60 @@ def write_output(captures, thresholds):
 # MAIN
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _build_loading_frame(screen_w, screen_h):
+    """Build a loading screen shown while the model initializes."""
+    canvas = np.full((screen_h, screen_w, 3), CLR_CANVAS, dtype=np.uint8)
+    cv2.putText(canvas, "AURELIUS", (40, 48),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, CLR_ROSE_GOLD, 1, cv2.LINE_AA)
+    msg = "Loading face model..."
+    msg_size = cv2.getTextSize(msg, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+    msg_x = (screen_w - msg_size[0]) // 2
+    msg_y = screen_h // 2
+    cv2.putText(canvas, msg, (msg_x, msg_y),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, CLR_CHARCOAL, 2, cv2.LINE_AA)
+    sub = "This may take a moment."
+    sub_size = cv2.getTextSize(sub, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+    sub_x = (screen_w - sub_size[0]) // 2
+    cv2.putText(canvas, sub, (sub_x, msg_y + 36),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, CLR_PLATINUM, 1, cv2.LINE_AA)
+    return canvas
+
+
 def main():
     print()
     print("  AURELIUS — Gaze Calibration")
     print("  Press SPACE to capture  |  Q to quit")
     print()
 
-    # ── Initialize MediaPipe ──────────────────────────────────────────────
+    # ── Detect screen size ────────────────────────────────────────────────
+    screen_w = 1920
+    screen_h = 1080
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        screen_w = user32.GetSystemMetrics(0)
+        screen_h = user32.GetSystemMetrics(1)
+    except Exception:
+        pass
+
+    # ── Show window IMMEDIATELY with a loading screen ─────────────────────
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN,
+                          cv2.WINDOW_FULLSCREEN)
+    cv2.imshow(WINDOW_NAME, _build_loading_frame(screen_w, screen_h))
+    cv2.waitKey(1)  # pump the event loop so the window actually appears
+
+    # ── Open camera ───────────────────────────────────────────────────────
+    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+
+    if not cap.isOpened():
+        print("  Cannot open camera.", file=sys.stderr)
+        cv2.destroyAllWindows()
+        return
+
+    # ── Initialize MediaPipe (heavy — loading screen is already visible) ──
     BaseOptions = mp.tasks.BaseOptions
     FaceLandmarker = mp.tasks.vision.FaceLandmarker
     FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
@@ -420,34 +444,7 @@ def main():
         output_facial_transformation_matrixes=False,
     )
 
-    cap = cv2.VideoCapture(CAMERA_INDEX)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-
-    if not cap.isOpened():
-        print("  Cannot open camera.", file=sys.stderr)
-        return
-
-    with suppress_cpp_output():
-        landmarker = FaceLandmarker.create_from_options(options)
-
-    # ── Create fullscreen window ──────────────────────────────────────────
-    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
-    cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN,
-                          cv2.WINDOW_FULLSCREEN)
-
-    # Detect screen size from the window
-    # We set a reasonable default and let OpenCV handle it
-    screen_w = 1920
-    screen_h = 1080
-    try:
-        # Try to get actual screen dimensions
-        import ctypes
-        user32 = ctypes.windll.user32
-        screen_w = user32.GetSystemMetrics(0)
-        screen_h = user32.GetSystemMetrics(1)
-    except Exception:
-        pass
+    landmarker = FaceLandmarker.create_from_options(options)
 
     frame_ts = 0
     captures = {}

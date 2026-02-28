@@ -53,7 +53,7 @@ export default function SessionSetupModal({ isOpen, onClose }: { isOpen: boolean
                 setStep('config');
                 startScript('configlandmarks');
             }
-        }, 1000);
+        }, 2000);
         return () => clearInterval(interval);
     }, [step]);
 
@@ -63,7 +63,7 @@ export default function SessionSetupModal({ isOpen, onClose }: { isOpen: boolean
         const interval = setInterval(async () => {
             const done = await pollStatus('configlandmarks');
             if (done) setStep('ready');
-        }, 1000);
+        }, 2000);
         return () => clearInterval(interval);
     }, [step]);
 

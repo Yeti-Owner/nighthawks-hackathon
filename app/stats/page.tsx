@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { withAuthenticationRequired } from '@auth0/auth0-react';
 import LiquidCard from '../../components/LiquidCard';
 import KpiCard from '../../components/KpiCard';
 import DailyHoursChart from '../../components/charts/DailyHoursChart';
@@ -27,7 +28,7 @@ import {
 const periods = ['Today', 'All Time'];
 const filters = ['All Filters', 'Phone Pickups', 'Face Detection'];
 
-export default function StatsDashboard() {
+function StatsDashboard() {
     const [activePeriod, setActivePeriod] = useState('Today');
     const [activeFilter, setActiveFilter] = useState('All Filters');
 
@@ -699,3 +700,16 @@ export default function StatsDashboard() {
         </div>
     );
 }
+
+export default withAuthenticationRequired(StatsDashboard, {
+    onRedirecting: () => (
+        <div className="flex min-h-screen items-center justify-center pt-[64px]" style={{ background: '#F9F8F5' }}>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#888' }}>Checking authentication...</span>
+        </div>
+    ),
+    loginOptions: {
+        authorizationParams: {
+            screen_hint: 'signup'
+        }
+    }
+});

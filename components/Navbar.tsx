@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth0 } from '@auth0/auth0-react';
 
 const navLinks = [
     { href: '/', label: 'Overview' },
@@ -10,6 +11,7 @@ const navLinks = [
 
 export default function Navbar() {
     const pathname = usePathname();
+    const { isAuthenticated, loginWithRedirect, logout, user, isLoading } = useAuth0();
 
     return (
         <nav
@@ -73,10 +75,41 @@ export default function Navbar() {
                 ))}
             </div>
 
-            {/* CTA Button — Auth0 integration pending */}
-            <button className="btn-primary" style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer' }}>
-                Login / Register
-            </button>
+            {/* Authentication UI */}
+            <div className="flex items-center gap-4">
+                {!isLoading && (
+                    isAuthenticated ? (
+                        <>
+                            <span style={{ fontFamily: 'var(--font-sans), sans-serif', fontSize: 13, color: '#666', fontWeight: 500 }}>
+                                {user?.email}
+                            </span>
+                            <button
+                                onClick={() => logout({ logoutParams: { returnTo: typeof window !== 'undefined' ? window.location.origin : '' } })}
+                                className="btn-primary"
+                                style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer', background: 'transparent', color: '#1A1A1A', border: '1px solid #1A1A1A' }}
+                            >
+                                Logout
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => loginWithRedirect()}
+                                style={{ fontFamily: 'var(--font-sans), sans-serif', fontSize: 13, color: '#1A1A1A', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                                Login
+                            </button>
+                            <button
+                                onClick={() => loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } })}
+                                className="btn-primary"
+                                style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer' }}
+                            >
+                                Register
+                            </button>
+                        </>
+                    )
+                )}
+            </div>
         </nav>
     );
 }

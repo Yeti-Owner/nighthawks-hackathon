@@ -6,6 +6,8 @@ import LiquidCard from '../components/LiquidCard';
 import SessionSetupModal from '../components/SessionSetupModal';
 import PomodoroTimer from '../components/PomodoroTimer';
 import { Activity, Clock, BarChart3, Eye, Timer, Lightbulb, TrendingUp, Users, Zap } from 'lucide-react';
+import { useAuth0 } from '@auth0/auth0-react';
+
 
 /* ─── Marquee data ─── */
 const marqueeItems = [
@@ -31,6 +33,8 @@ export default function LandingPage() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
+
 
   const handleEndSession = async () => {
     setIsSyncing(true);
@@ -181,7 +185,16 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             {!isSessionActive ? (
-              <button onClick={() => setIsSetupOpen(true)} className="btn-primary btn-large">
+              <button
+                onClick={() => {
+                  if (isAuthenticated) {
+                    setIsSetupOpen(true);
+                  } else {
+                    loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } });
+                  }
+                }}
+                className="btn-primary btn-large"
+              >
                 Start a Session
               </button>
             ) : (

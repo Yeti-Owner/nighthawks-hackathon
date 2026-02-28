@@ -77,3 +77,36 @@ export const subjectHours = Object.entries(
     }, {})
 ).map(([subject, hours]) => ({ subject, hours: Math.round(hours * 10) / 10 }))
     .sort((a, b) => b.hours - a.hours);
+
+// Phone Pickup Data
+export interface PhonePickupEvent {
+    time: string;       // e.g. "09:14"
+    minutesUnattended: number; // how long phone was left alone before this pickup
+    durationSeconds: number;   // how long this pickup lasted
+}
+
+export const phonePickupEvents: PhonePickupEvent[] = [
+    { time: "08:05", minutesUnattended: 0, durationSeconds: 45 },
+    { time: "08:52", minutesUnattended: 47, durationSeconds: 120 },
+    { time: "09:31", minutesUnattended: 39, durationSeconds: 30 },
+    { time: "10:14", minutesUnattended: 43, durationSeconds: 210 },
+    { time: "10:58", minutesUnattended: 44, durationSeconds: 60 },
+    { time: "11:43", minutesUnattended: 45, durationSeconds: 15 },
+    { time: "12:22", minutesUnattended: 39, durationSeconds: 300 },
+    { time: "13:05", minutesUnattended: 43, durationSeconds: 90 },
+    { time: "13:47", minutesUnattended: 42, durationSeconds: 25 },
+    { time: "14:30", minutesUnattended: 43, durationSeconds: 180 },
+    { time: "15:10", minutesUnattended: 40, durationSeconds: 45 },
+    { time: "15:55", minutesUnattended: 45, durationSeconds: 75 },
+    { time: "16:38", minutesUnattended: 43, durationSeconds: 20 },
+    { time: "17:20", minutesUnattended: 42, durationSeconds: 240 },
+    { time: "18:05", minutesUnattended: 45, durationSeconds: 60 },
+];
+
+export const totalPhonePickups = phonePickupEvents.length;
+export const avgUnattendedMinutes = Math.round(
+    phonePickupEvents.slice(1).reduce((sum, e) => sum + e.minutesUnattended, 0) /
+    (phonePickupEvents.length - 1)
+);
+export const longestUnattended = Math.max(...phonePickupEvents.map(e => e.minutesUnattended));
+

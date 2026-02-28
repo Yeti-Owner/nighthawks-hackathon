@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import LiquidCard from '../../components/LiquidCard';
 import KpiCard from '../../components/KpiCard';
 import DailyHoursChart from '../../components/charts/DailyHoursChart';
@@ -8,14 +8,34 @@ import SubjectBarChart from '../../components/charts/SubjectBarChart';
 import DistractionDonut from '../../components/charts/DistractionDonut';
 import TopAppsList from '../../components/TopAppsList';
 import SessionTable from '../../components/SessionTable';
-import { totalStudyMinutes, totalSessions, avgFocusScore, totalInterruptions } from '../../lib/data';
+import PhonePickupsChart from '../../components/charts/PhonePickupsChart';
+import {
+    totalStudyMinutes,
+    totalSessions,
+    avgFocusScore,
+    totalInterruptions,
+    totalPhonePickups,
+    avgUnattendedMinutes,
+    longestUnattended,
+} from '../../lib/data';
 
-const periods = ['Today', 'This Week', 'This Month', 'All Time'];
-const filters = ['All Subjects', 'Physics', 'Mathematics', 'Literature', 'Chemistry', 'History'];
+const periods = ['Today', 'All Time'];
+const filters = ['All Filters', 'Phone Pickups', 'Face Detection'];
 
 export default function StatsDashboard() {
-    const [activePeriod, setActivePeriod] = useState('This Month');
-    const [activeFilter, setActiveFilter] = useState('All Subjects');
+    const [activePeriod, setActivePeriod] = useState('Today');
+    const [activeFilter, setActiveFilter] = useState('All Filters');
+
+    const phonePickupsRef = useRef<HTMLDivElement>(null);
+
+    function handleFilterClick(filter: string) {
+        setActiveFilter(filter);
+        if (filter === 'Phone Pickups') {
+            setTimeout(() => {
+                phonePickupsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+        }
+    }
 
     return (
         <div className="flex min-h-screen bg-[#F9F8F5] pt-[64px]">
@@ -55,12 +75,12 @@ export default function StatsDashboard() {
                 </div>
 
                 <div>
-                    <h4 className="micro-label mb-6">SUBJECT filters</h4>
+                    <h4 className="micro-label mb-6">FILTERS</h4>
                     <div className="flex flex-col gap-4">
                         {filters.map(filter => (
                             <button
                                 key={filter}
-                                onClick={() => setActiveFilter(filter)}
+                                onClick={() => handleFilterClick(filter)}
                                 className="text-left bg-transparent border-none cursor-pointer"
                                 style={{
                                     fontFamily: 'var(--font-sans), sans-serif',
@@ -130,7 +150,7 @@ export default function StatsDashboard() {
                         value={totalInterruptions.toString()}
                         label="TOTAL INTERRUPTIONS"
                         trend="-18% vs last month"
-                        trendType="positive" // Decreased interruptions is positive
+                        trendType="positive"
                         delay={240}
                     />
                 </div>
@@ -158,6 +178,125 @@ export default function StatsDashboard() {
                     <div className="flex-grow w-full lg:w-[50%]">
                         <TopAppsList />
                     </div>
+                </div>
+
+                {/* ─── Phone Pickups Section ─── */}
+                <div
+                    ref={phonePickupsRef}
+                    className="mb-[64px] animate-fade-up"
+                    style={{ animationDelay: '460ms', scrollMarginTop: '96px' }}
+                >
+                    {/* Section header */}
+                    <div className="flex items-center gap-4 mb-8">
+                        <div
+                            style={{
+                                width: 3,
+                                height: 28,
+                                background: 'linear-gradient(180deg, #B07A4A, #8B5E3C)',
+                                borderRadius: 99,
+                            }}
+                        />
+                        <div>
+                            <span className="micro-label" style={{ color: '#B07A4A' }}>DISTRACTION ANALYSIS</span>
+                            <h2
+                                style={{
+                                    fontFamily: 'var(--font-serif), serif',
+                                    fontSize: 26,
+                                    color: '#1A1A1A',
+                                    letterSpacing: '-0.015em',
+                                    margin: '2px 0 0',
+                                }}
+                            >
+                                Phone Pickups
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* KPI mini-cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* Total pickups */}
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#B07A4A' }}>TOTAL PICKUPS</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>
+                                {totalPhonePickups}
+                            </p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>times today</p>
+                        </LiquidCard>
+
+                        {/* Avg unattended */}
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#4A6741' }}>AVG. FOCUS WINDOW</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>
+                                {avgUnattendedMinutes}<span style={{ fontSize: 18, color: '#888' }}> min</span>
+                            </p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>avg. between pickups</p>
+                        </LiquidCard>
+
+                        {/* Longest without phone */}
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#2C3E50' }}>BEST STREAK</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>
+                                {longestUnattended}<span style={{ fontSize: 18, color: '#888' }}> min</span>
+                            </p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>longest phone-free window</p>
+                        </LiquidCard>
+                    </div>
+
+                    {/* Chart */}
+                    <LiquidCard padding="p-8">
+                        <div className="flex items-start justify-between mb-6">
+                            <div>
+                                <h3 className="micro-label mb-1">Pickup Timeline</h3>
+                                <p style={{ fontSize: 12, color: '#999', margin: 0 }}>
+                                    Bars = how long you used<br />the phone · Line = focus window before each pickup
+                                </p>
+                            </div>
+                            <div style={{
+                                background: 'rgba(176,122,74,0.08)',
+                                border: '1px solid rgba(176,122,74,0.2)',
+                                borderRadius: 8,
+                                padding: '6px 14px',
+                                fontSize: 11,
+                                color: '#B07A4A',
+                                fontFamily: 'var(--font-sans)',
+                                fontWeight: 600,
+                                letterSpacing: '0.05em'
+                            }}>
+                                TODAY
+                            </div>
+                        </div>
+                        <PhonePickupsChart />
+
+                        {/* Event timeline list */}
+                        <div style={{ marginTop: 28, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
+                            <p className="micro-label mb-4">ALL PICKUP EVENTS</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {[...require('../../lib/data').phonePickupEvents].map((e: any, i: number) => (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 16,
+                                            padding: '8px 12px',
+                                            borderRadius: 8,
+                                            background: i % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A1A', width: 44, flexShrink: 0 }}>{e.time}</span>
+                                        <span style={{ fontSize: 12, color: '#B07A4A', flexShrink: 0 }}>
+                                            📱 picked up for {e.durationSeconds}s
+                                        </span>
+                                        {e.minutesUnattended > 0 && (
+                                            <span style={{ fontSize: 11, color: '#888' }}>
+                                                · {e.minutesUnattended} min phone-free before this
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </LiquidCard>
                 </div>
 
                 {/* Row 4: Session Log Table */}

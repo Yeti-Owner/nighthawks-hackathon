@@ -98,7 +98,6 @@ def main():
     time.sleep(2)   # wait for Arduino to finish resetting after DTR toggle
 
     total_pickups = 0
-    total_seconds = 0
     all_sessions  = []
 
     try:
@@ -119,7 +118,6 @@ def main():
                 if len(parts) > 1:
                     try:
                         sec = int(parts[1].replace("sec)", "").strip())
-                        total_seconds += sec
                         all_sessions.append({
                             "session": total_pickups,
                             "seconds": sec,

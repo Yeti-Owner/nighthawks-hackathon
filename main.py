@@ -5,11 +5,25 @@ Middleman FastAPI backend — runs on Vultr (Debian 12, port 8000).
 Optimized for: 1 vCPU / 512MB RAM / 10GB SSD
 
 Memory strategy:
-  - Arduino stats are computed entirely in SQL (no Python-side data load)
+  - Arduino stats computed entirely in SQL (no Python-side data load)
   - Study/phone-cam stats stream rows one at a time via cursor iteration
   - Batch inserts use generator expressions (no intermediate list in RAM)
-  - Raw logs are deleted from SQLite immediately after stats are saved
-  - Uvicorn is locked to 1 worker with a backlog cap
+  - Raw logs deleted immediately after stats are safely saved
+  - Uvicorn locked to 1 worker with backlog and keep-alive caps
+
+Arduino / bridge flow:
+  1. serial_bridge.py runs on the PC connected to the Arduino
+  2. It monitors Serial output live, collecting pickups in memory
+  3. On CTRL+C, it POSTs each pickup individually to POST /arduino/log
+  4. Each POST has: session_id (pickup counter), picked_up_at, duration_sec
+  5. Stats are calculated on demand via POST /stats/calculate/{session_id}
+  6. Raw logs are disposed after stats are written
+
+  Note on session_id from Arduino:
+  The bridge increments session_id per pickup (1 for pickup 1, 2 for pickup 2…).
+  This means Arduino session_id acts as a pickup ID, not a study-session ID.
+  _calc_arduino_stats therefore aggregates ALL rows in arduino_log, not just
+  those matching the requested session_id. Dispose clears all arduino_log rows.
 
 Run with:
   uv run main.py
@@ -22,8 +36,8 @@ from contextlib import asynccontextmanager
 
 from database import init_db, get_conn
 from schemas import (
-    ArduinoEntry, ArduinoBatch,
-    StudyEvent,   StudyBatch,
+    ArduinoEntry,
+    StudyEvent, StudyBatch,
     PhoneCamEvent, PhoneCamBatch,
     SessionStats,
 )
@@ -39,10 +53,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Middleman Backend",
     description="Receives Arduino/webcam logs, calculates stats, disposes raw logs.",
-    version="0.2.0",
+    version="0.4.0",
     lifespan=lifespan,
-    # Disable interactive docs in production to reduce overhead.
-    # Set both to None when fully deployed; keep enabled during dev.
+    # Uncomment both lines below when fully deployed to reduce overhead:
     # docs_url=None,
     # redoc_url=None,
 )
@@ -63,27 +76,19 @@ def health():
 
 @app.post("/arduino/log")
 def log_arduino(entry: ArduinoEntry):
-    """Receive a single phone-pickup event from the Arduino."""
+    """
+    Receive a single pickup event from serial_bridge.py.
+    Called once per pickup after the user presses CTRL+C on the bridge.
+
+    Payload: { session_id, picked_up_at, duration_sec }
+    session_id increments per pickup in the bridge — see module note above.
+    """
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO arduino_log (session_id, picked_up_at, duration_sec) VALUES (?,?,?)",
             (entry.session_id, entry.picked_up_at, entry.duration_sec),
         )
     return {"status": "ok"}
-
-
-@app.post("/arduino/batch")
-def log_arduino_batch(batch: ArduinoBatch):
-    """
-    Batch insert for Arduino entries.
-    Generator expression — the full list is never held in memory at once.
-    """
-    with get_conn() as conn:
-        conn.executemany(
-            "INSERT INTO arduino_log (session_id, picked_up_at, duration_sec) VALUES (?,?,?)",
-            ((e.session_id, e.picked_up_at, e.duration_sec) for e in batch.entries),
-        )
-    return {"status": "ok", "logged": len(batch.entries)}
 
 
 # ── Study Tracker (Face Webcam) ───────────────────────────────────────────────
@@ -101,10 +106,7 @@ def log_study_event(event: StudyEvent):
 
 @app.post("/study/batch")
 def log_study_batch(batch: StudyBatch):
-    """
-    Batch insert for a full study-session CSV dump.
-    Validates all events first, then inserts via generator.
-    """
+    """Batch insert for a full study-session CSV dump."""
     for e in batch.events:
         e.validate_event()
     with get_conn() as conn:
@@ -119,7 +121,7 @@ def log_study_batch(batch: StudyBatch):
 
 @app.post("/phone-cam/log")
 def log_phone_cam_event(event: PhoneCamEvent):
-    """Placeholder — update PhoneCamEvent in schemas.py once the log format is defined."""
+    """Placeholder — update PhoneCamEvent in schemas.py once log format is defined."""
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO phone_cam_log (session_id, event_time, event_type, extra_data) VALUES (?,?,?,?)",
@@ -140,47 +142,59 @@ def log_phone_cam_batch(batch: PhoneCamBatch):
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CALCULATION FUNCTIONS
-# Each function receives an open connection and a session_id.
 # ═════════════════════════════════════════════════════════════════════════════
 
 def _calc_arduino_stats(conn, session_id: int) -> dict:
     """
-    Aggregate phone-pickup stats entirely inside SQLite.
-    No rows are loaded into Python memory — COUNT/SUM/AVG run on the DB side.
-    ── Adjust the formula comment below when finalizing ──
+    Aggregate ALL arduino_log rows in SQL — no Python-side data load.
+
+    Why ALL rows and not filtered by session_id:
+      The bridge uses session_id as a per-pickup counter (1, 2, 3…), so each
+      pickup has a unique session_id. Filtering by the study session_id would
+      only ever return 0 or 1 row. Instead, we aggregate everything currently
+      in the table (all pickups from the current Arduino run).
+
+    Stats produced:
+      phone_pickups  — COUNT of rows
+      total_held_sec — SUM of duration_sec
+      avg_held_sec   — AVG of duration_sec  ← adjust formula if needed
     """
     row = conn.execute(
         """
         SELECT
             COUNT(*)           AS phone_pickups,
-            SUM(duration_sec)  AS total_phone_sec,
-            AVG(duration_sec)  AS avg_pickup_duration   -- ← adjust formula if needed
+            SUM(duration_sec)  AS total_held_sec,
+            AVG(duration_sec)  AS avg_held_sec    -- ← adjust formula if needed
         FROM arduino_log
-        WHERE session_id = ?
-        """,
-        (session_id,),
+        """
     ).fetchone()
 
     if not row or row["phone_pickups"] == 0:
         return {}
 
     return {
-        "phone_pickups":       row["phone_pickups"],
-        "total_phone_sec":     row["total_phone_sec"],
-        "avg_pickup_duration": row["avg_pickup_duration"],
+        "phone_pickups":  row["phone_pickups"],
+        "total_held_sec": row["total_held_sec"],
+        "avg_held_sec":   row["avg_held_sec"],
     }
 
 
-def _time_to_sec(t: str) -> float:
-    """Convert HH:MM:SS to total seconds. No imports needed."""
-    h, m, s = t.split(":")
-    return int(h) * 3600 + int(m) * 60 + int(s)
+def _time_to_sec(t: str):
+    """
+    Convert HH:MM:SS to total seconds.
+    Returns None on malformed input so the caller can skip the row
+    instead of crashing the entire calculation and stranding raw logs.
+    """
+    try:
+        h, m, s = t.split(":")
+        return int(h) * 3600 + int(m) * 60 + int(s)
+    except (ValueError, AttributeError):
+        return None
 
 
 def _calc_study_stats(conn, session_id: int) -> dict:
     """
-    Stream study events one row at a time via cursor iteration.
-    No fetchall() — rows are processed and discarded immediately.
+    Stream study events one row at a time — no fetchall(), no bulk RAM load.
 
     Event pairs tracked:
       SS → SE  : total session duration
@@ -204,12 +218,15 @@ def _calc_study_stats(conn, session_id: int) -> dict:
     look_away_count = 0
     face_lost_count = 0
     _la_start = _fl_start = None
-    has_rows  = False
+    has_rows = False
 
-    for row in cursor:          # ← one row at a time, no list in RAM
+    for row in cursor:
         has_rows = True
         t, e = row["event_time"], row["event_type"]
         ts = _time_to_sec(t)
+
+        if ts is None:
+            continue   # malformed timestamp — skip row, don't crash the session
 
         if   e == "SS": session_start = ts
         elif e == "SE": session_end   = ts
@@ -230,9 +247,7 @@ def _calc_study_stats(conn, session_id: int) -> dict:
     )
 
     # ── focus_pct formula placeholder ─────────────────────────────────────
-    # Fill in the formula once defined, e.g.:
-    # if session_duration_sec:
-    #     focus_pct = 1 - (look_away_sec + face_lost_sec) / session_duration_sec
+    # e.g.: focus_pct = 1 - (look_away_sec + face_lost_sec) / session_duration_sec
     focus_pct = None  # ← FILL IN FORMULA
 
     return {
@@ -247,10 +262,9 @@ def _calc_study_stats(conn, session_id: int) -> dict:
 
 def _calc_phone_cam_stats(conn, session_id: int) -> dict:
     """
-    Placeholder — stream phone-cam events and compute stats once the
-    log format and event codes are defined.
+    Placeholder — stream phone-cam events once the log format is defined.
 
-    Pattern to follow when implementing:
+    Pattern to follow:
         cursor = conn.execute(
             "SELECT event_time, event_type FROM phone_cam_log "
             "WHERE session_id = ? ORDER BY event_time ASC",
@@ -267,19 +281,19 @@ def _calc_phone_cam_stats(conn, session_id: int) -> dict:
 
 
 def _save_stats(conn, session_id: int, stats: dict):
-    """Upsert calculated stats into the session_stats cache table."""
+    """Upsert calculated stats into session_stats cache."""
     conn.execute(
         """
         INSERT INTO session_stats (
             session_id,
-            phone_pickups, total_phone_sec, avg_pickup_duration,
+            phone_pickups, total_held_sec, avg_held_sec,
             session_duration_sec, total_look_away_sec, total_face_lost_sec,
             look_away_count, face_lost_count, focus_pct,
             phone_cam_stat_1, phone_cam_stat_2,
             last_updated
         ) VALUES (
             :session_id,
-            :phone_pickups, :total_phone_sec, :avg_pickup_duration,
+            :phone_pickups, :total_held_sec, :avg_held_sec,
             :session_duration_sec, :total_look_away_sec, :total_face_lost_sec,
             :look_away_count, :face_lost_count, :focus_pct,
             :phone_cam_stat_1, :phone_cam_stat_2,
@@ -287,8 +301,8 @@ def _save_stats(conn, session_id: int, stats: dict):
         )
         ON CONFLICT(session_id) DO UPDATE SET
             phone_pickups        = excluded.phone_pickups,
-            total_phone_sec      = excluded.total_phone_sec,
-            avg_pickup_duration  = excluded.avg_pickup_duration,
+            total_held_sec       = excluded.total_held_sec,
+            avg_held_sec         = excluded.avg_held_sec,
             session_duration_sec = excluded.session_duration_sec,
             total_look_away_sec  = excluded.total_look_away_sec,
             total_face_lost_sec  = excluded.total_face_lost_sec,
@@ -305,21 +319,27 @@ def _save_stats(conn, session_id: int, stats: dict):
 
 def _dispose_logs(conn, session_id: int):
     """
-    Delete all raw log rows for this session once stats are safely stored.
-    Indexes on session_id make these DELETEs fast with minimal I/O.
-    This keeps the DB lean and prevents raw log tables from growing unbounded.
+    Delete raw log rows after stats are safely stored.
+    Arduino logs: ALL rows cleared (session_id is per-pickup, not per-study-session).
+    Study / phone-cam logs: filtered by session_id as normal.
+
+    wal_checkpoint(PASSIVE) runs after deletion to merge the WAL back into
+    the main DB file. Without this, the WAL grows silently after every
+    disposal and never shrinks until the process restarts — a problem on
+    a 10GB SSD.
     """
-    conn.execute("DELETE FROM arduino_log   WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM arduino_log")
     conn.execute("DELETE FROM study_log     WHERE session_id = ?", (session_id,))
     conn.execute("DELETE FROM phone_cam_log WHERE session_id = ?", (session_id,))
+    conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STATS ROUTES — calculate, cache, dispose, return to frontend
+# STATS ROUTES
 # ═════════════════════════════════════════════════════════════════════════════
 
 _STAT_DEFAULTS = {
-    "phone_pickups": None, "total_phone_sec": None, "avg_pickup_duration": None,
+    "phone_pickups": None, "total_held_sec": None, "avg_held_sec": None,
     "session_duration_sec": None, "total_look_away_sec": None,
     "total_face_lost_sec": None, "look_away_count": None,
     "face_lost_count": None, "focus_pct": None,
@@ -330,13 +350,11 @@ _STAT_DEFAULTS = {
 @app.post("/stats/calculate/{session_id}", response_model=SessionStats)
 def calculate_stats(session_id: int):
     """
-    1. Compute stats from raw logs (streaming, no bulk RAM load).
-    2. Upsert results into session_stats.
-    3. Delete raw log rows — they are no longer needed.
-    4. Return the stats to the caller.
-
-    All three steps run inside a single transaction:
-    if saving fails, logs are NOT deleted.
+    1. Compute stats from raw logs (streaming, minimal RAM).
+    2. Upsert into session_stats.
+    3. Delete raw logs — all in one transaction.
+       If the save fails, logs are NOT deleted.
+    4. Return stats to the caller.
     """
     with get_conn() as conn:
         stats = {
@@ -346,7 +364,7 @@ def calculate_stats(session_id: int):
             **_calc_phone_cam_stats(conn, session_id),
         }
         _save_stats(conn, session_id, stats)
-        _dispose_logs(conn, session_id)   # ← only runs if save succeeds
+        _dispose_logs(conn, session_id)
 
     return SessionStats(session_id=session_id, **stats)
 
@@ -374,8 +392,6 @@ def get_stats(session_id: int):
 def get_all_stats():
     """Return all cached sessions for the frontend dashboard."""
     with get_conn() as conn:
-        # Stream rows into list — session_stats stays small since raw logs
-        # are disposed after each calculation, so this table won't balloon.
         rows = conn.execute(
             "SELECT * FROM session_stats ORDER BY session_id DESC"
         ).fetchall()
@@ -390,9 +406,9 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        workers=1,              # single vCPU — never spin up more than 1
-        reload=False,           # reload=True doubles memory usage
-        backlog=64,             # cap queued connections; default 2048 is too high
-        timeout_keep_alive=5,   # drop idle connections quickly to free sockets
-        access_log=False,       # skip per-request logging to save I/O on small SSD
+        workers=1,
+        reload=False,
+        backlog=64,
+        timeout_keep_alive=5,
+        access_log=False,
     )

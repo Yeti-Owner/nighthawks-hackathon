@@ -30,13 +30,22 @@ from contextlib import contextmanager
 
 DB_PATH = "middleman.db"
 
-_PRAGMAS = """
-    PRAGMA journal_mode = WAL;
-    PRAGMA synchronous  = NORMAL;
-    PRAGMA cache_size   = -1000;
-    PRAGMA temp_store   = MEMORY;
-    PRAGMA foreign_keys = ON;
-"""
+# Applied via individual execute() calls — NOT executescript().
+# executescript() issues an implicit COMMIT before running, which is
+# unnecessary overhead on every connection open. execute() has no such cost.
+#
+# wal_autocheckpoint = 100:
+#   SQLite's default is 1000 pages before it merges the WAL back into the
+#   main DB file. On a 10GB SSD, keeping that tighter (100 pages ≈ 400KB)
+#   prevents the WAL from silently growing between sessions.
+_PRAGMAS = [
+    "PRAGMA journal_mode = WAL",
+    "PRAGMA synchronous  = NORMAL",
+    "PRAGMA cache_size   = -1000",
+    "PRAGMA temp_store   = MEMORY",
+    "PRAGMA foreign_keys = ON",
+    "PRAGMA wal_autocheckpoint = 100",
+]
 
 
 @contextmanager
@@ -48,7 +57,8 @@ def get_conn():
     """
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.executescript(_PRAGMAS)
+    for pragma in _PRAGMAS:
+        conn.execute(pragma)
     try:
         yield conn
         conn.commit()

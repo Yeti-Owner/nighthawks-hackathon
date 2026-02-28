@@ -1,40 +1,59 @@
 import cv2
 import json
 import threading
+import time
 import tkinter as tk
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import messagebox
 from PIL import Image, ImageTk
 
 # ─── Aurelius Design Tokens ──────────────────────────────────────────────────
-# Derived from the Aurelius "Quiet Luxury" palette
-CANVAS         = "#F9F8F5"     # Warm Pearl — page background
-SURFACE        = "#FDFCFA"     # Slightly warm card surface
-TEXT_PRIMARY   = "#1A1A1A"     # Off-Black Charcoal
-TEXT_SECONDARY = "#666666"     # Slate
-ACCENT_TRUST   = "#2C3E50"     # Midnight Blue — primary accent
-ACCENT_METAL   = "#D7C3B3"     # Rose Gold — decorative / secondary
-PLATINUM       = "#A8A9AD"     # Brushed Platinum — borders
-POSITIVE       = "#2E7D32"     # Muted green — success
-NEGATIVE       = "#C62828"     # Muted red — errors
-BORDER         = "#E8E6E1"     # Subtle warm border for cards
+CANVAS         = "#F9F8F5"
+SURFACE        = "#FDFCFA"
+TEXT_PRIMARY   = "#1A1A1A"
+TEXT_SECONDARY = "#666666"
+ACCENT_TRUST   = "#2C3E50"
+ACCENT_METAL   = "#D7C3B3"
+PLATINUM       = "#A8A9AD"
+POSITIVE       = "#2E7D32"
+NEGATIVE       = "#C62828"
+BORDER         = "#E8E6E1"
 
 FONT_FAMILY    = "Inter"
 FONT_FALLBACK  = "Segoe UI"
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 CONFIG_FILE     = "cameras.txt"
-SCAN_LIMIT      = 8
-MAX_CAMERAS     = 4             # Capped at 4 for the 2×2 grid
+SCAN_LIMIT      = 4
+MAX_CAMERAS     = 4
 GRID_COLS       = 2
 THUMB_W         = 256
 THUMB_H         = 152
 FILTER_VIRTUAL  = True
+TICK_MS         = 33       # ~30 fps is plenty for thumbnails (was 16/60fps)
+GRABBER_SLEEP   = 0.01     # Avoid 100% CPU spin in grabber thread
 
 VIRTUAL_KEYWORDS = [
     "obs", "nvidia broadcast", "nvidia rtx", "virtual", "droidcam",
     "epoccam", "iriun", "snap camera", "xsplit", "manycam", "camo",
     "ndi", "streamlabs", "lgs", "logitech capture", "ivcam",
 ]
+
+# ─── Cache pygrabber devices once at import time (if available) ───────────────
+_DEVICE_NAMES: list[str] | None = None
+
+def _load_device_names():
+    """Fetch DirectShow device names once and cache them."""
+    global _DEVICE_NAMES
+    if _DEVICE_NAMES is not None:
+        return _DEVICE_NAMES
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        graph = FilterGraph()
+        _DEVICE_NAMES = graph.get_input_devices()
+    except Exception:
+        _DEVICE_NAMES = []
+    return _DEVICE_NAMES
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,15 +64,10 @@ def _font(size, weight="normal"):
 
 # ─── Camera detection ─────────────────────────────────────────────────────────
 
-def get_camera_name(index):
-    try:
-        from pygrabber.dshow_graph import FilterGraph
-        graph = FilterGraph()
-        devices = graph.get_input_devices()
-        if index < len(devices):
-            return devices[index]
-    except Exception:
-        pass
+def get_camera_name(index: int) -> str:
+    devices = _load_device_names()
+    if index < len(devices):
+        return devices[index]
     return f"Camera {index}"
 
 
@@ -62,37 +76,51 @@ def is_virtual(name: str) -> bool:
     return any(kw in low for kw in VIRTUAL_KEYWORDS)
 
 
-def detect_cameras():
-    cameras = []
-    for i in range(SCAN_LIMIT):
-        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-        if not cap.isOpened():
-            cap.release()
-            cap = cv2.VideoCapture(i)
-        if not cap.isOpened():
-            cap.release()
-            continue
+def _probe_camera(i: int) -> dict | None:
+    """Try to open a single camera index. Returns camera dict or None."""
+    cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap.release()
+        cap = cv2.VideoCapture(i)
+    if not cap.isOpened():
+        cap.release()
+        return None
 
-        ret, _ = cap.read()
-        if not ret:
-            cap.release()
-            continue
+    ret, _ = cap.read()
+    if not ret:
+        cap.release()
+        return None
 
-        name = get_camera_name(i)
-        if FILTER_VIRTUAL and is_virtual(name):
-            cap.release()
-            continue
+    name = get_camera_name(i)
+    if FILTER_VIRTUAL and is_virtual(name):
+        cap.release()
+        return None
 
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FPS, 30)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-        cameras.append({"id": i, "name": name, "cap": cap})
-        if len(cameras) >= MAX_CAMERAS:
-            break
+    return {"id": i, "name": name, "cap": cap}
 
-    return cameras
+
+def detect_cameras_parallel() -> list[dict]:
+    """Probe all camera indices simultaneously using a thread pool."""
+    results: dict[int, dict] = {}
+
+    # Pre-fetch device names on this thread before spawning workers
+    _load_device_names()
+
+    with ThreadPoolExecutor(max_workers=SCAN_LIMIT) as executor:
+        futures = {executor.submit(_probe_camera, i): i for i in range(SCAN_LIMIT)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            cam = future.result()
+            if cam is not None:
+                results[idx] = cam
+
+    # Return in index order, capped at MAX_CAMERAS
+    return [results[k] for k in sorted(results)[:MAX_CAMERAS]]
 
 
 # ─── Frame grabber ─────────────────────────────────────────────────────────────
@@ -114,6 +142,9 @@ class FrameGrabber:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 with self.lock:
                     self.frame = frame
+            else:
+                # No frame available — sleep briefly to avoid spinning
+                time.sleep(GRABBER_SLEEP)
 
     def get_frame(self):
         with self.lock:
@@ -137,17 +168,14 @@ class CameraCard(tk.Frame):
         self._role   = None
         self._imref  = None
 
-        # ── Inner padding frame ───────────────────────────────────────────
         inner = tk.Frame(self, bg=SURFACE)
         inner.pack(padx=12, pady=12)
         self._inner = inner
 
-        # Camera preview
         self.canvas = tk.Canvas(inner, width=THUMB_W, height=THUMB_H,
                                 bg="#EDECEA", highlightthickness=0)
         self.canvas.pack()
 
-        # ── Info row: name + role badge ───────────────────────────────────
         info = tk.Frame(inner, bg=SURFACE)
         info.pack(fill="x", pady=(8, 0))
 
@@ -164,12 +192,10 @@ class CameraCard(tk.Frame):
         )
         self._badge.pack(side="right")
 
-        # ── Button row ────────────────────────────────────────────────────
         btn_frame = tk.Frame(inner, bg=SURFACE)
         btn_frame.pack(fill="x", pady=(8, 0))
         self._btn_frame = btn_frame
 
-        # Primary — solid Midnight Blue pill
         self._btn_pri = tk.Button(
             btn_frame, text="PRIMARY", width=10,
             command=lambda: on_select(self, "primary"),
@@ -179,7 +205,6 @@ class CameraCard(tk.Frame):
         )
         self._btn_pri.pack(side="left", padx=(0, 8))
 
-        # Secondary — ghost / outlined
         self._btn_sec = tk.Button(
             btn_frame, text="SECONDARY", width=12,
             command=lambda: on_select(self, "secondary"),
@@ -209,6 +234,37 @@ class CameraCard(tk.Frame):
             self._badge.config(text="", fg=ACCENT_METAL)
 
 
+# ─── Loading overlay ──────────────────────────────────────────────────────────
+
+class LoadingOverlay(tk.Frame):
+    """Animated "Scanning…" overlay shown while cameras are being detected."""
+
+    _DOTS = ["", ".", "..", "..."]
+
+    def __init__(self, parent):
+        super().__init__(parent, bg=CANVAS)
+        self._step = 0
+        self._after_id = None
+
+        self._label = tk.Label(
+            self, text="Scanning cameras",
+            font=_font(13), bg=CANVAS, fg=TEXT_SECONDARY,
+        )
+        self._label.pack(expand=True)
+        self._animate()
+
+    def _animate(self):
+        dots = self._DOTS[self._step % len(self._DOTS)]
+        self._label.config(text=f"Scanning cameras{dots}")
+        self._step += 1
+        self._after_id = self.after(400, self._animate)
+
+    def destroy(self):
+        if self._after_id:
+            self.after_cancel(self._after_id)
+        super().destroy()
+
+
 # ─── Main application ──────────────────────────────────────────────────────────
 
 class App:
@@ -228,7 +284,12 @@ class App:
         self._build_body()
         self._build_footer()
 
-        self._scan()
+        # Show the window immediately, then scan in a background thread
+        self._overlay = LoadingOverlay(self.card_frame)
+        self._overlay.pack(expand=True, fill="both")
+        self.status.config(text="Scanning cameras…", fg=TEXT_SECONDARY)
+
+        threading.Thread(target=self._scan_bg, daemon=True).start()
         self._tick()
 
     # ── Header ────────────────────────────────────────────────────────────────
@@ -237,14 +298,12 @@ class App:
         hdr = tk.Frame(self.root, bg=CANVAS)
         hdr.pack(fill="x", padx=24, pady=(16, 0))
 
-        # Brand wordmark — AURELIUS micro-label
         tk.Label(
             hdr, text="AURELIUS",
             bg=CANVAS, fg=ACCENT_METAL,
             font=_font(10, "bold"),
         ).pack(anchor="w")
 
-        # Title row
         title_row = tk.Frame(self.root, bg=CANVAS)
         title_row.pack(fill="x", padx=24, pady=(2, 0))
 
@@ -253,7 +312,6 @@ class App:
             font=_font(18, "bold"), bg=CANVAS, fg=TEXT_PRIMARY,
         ).pack(side="left")
 
-        # Rescan button — ghost
         tk.Button(
             title_row, text="↻  RESCAN",
             command=self._rescan,
@@ -262,7 +320,6 @@ class App:
             activebackground=SURFACE, activeforeground=ACCENT_TRUST,
         ).pack(side="right")
 
-        # Subtitle
         tk.Label(
             self.root,
             text="Select a primary camera for gaze tracking and an optional secondary camera.",
@@ -270,26 +327,22 @@ class App:
             anchor="w",
         ).pack(fill="x", padx=24, pady=(2, 0))
 
-    # ── Body (2×2 grid) ──────────────────────────────────────────────────────
+    # ── Body ──────────────────────────────────────────────────────────────────
 
     def _build_body(self):
         self.card_frame = tk.Frame(self.root, bg=CANVAS)
         self.card_frame.pack(padx=24, pady=12, fill="both", expand=True)
-
-        # Configure 2 columns with equal weight
         for c in range(GRID_COLS):
             self.card_frame.columnconfigure(c, weight=1)
 
     # ── Footer ────────────────────────────────────────────────────────────────
 
     def _build_footer(self):
-        # Thin separator
         tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x", padx=24)
 
         ftr = tk.Frame(self.root, bg=CANVAS)
         ftr.pack(fill="x", padx=24, pady=12)
 
-        # Save — primary CTA
         tk.Button(
             ftr, text="SAVE CONFIGURATION",
             command=self._save,
@@ -303,13 +356,22 @@ class App:
         )
         self.status.pack(side="left")
 
-    # ── Camera scanning ───────────────────────────────────────────────────────
+    # ── Camera scanning (background) ──────────────────────────────────────────
 
-    def _scan(self):
-        self.status.config(text="Scanning cameras…", fg=TEXT_SECONDARY)
-        self.root.update()
+    def _scan_bg(self):
+        """Run in a worker thread; posts results back to the main thread."""
+        cameras = detect_cameras_parallel()
+        # Schedule UI update on the main thread
+        self.root.after(0, lambda: self._scan_done(cameras))
 
-        self.cameras = detect_cameras()
+    def _scan_done(self, cameras):
+        """Called on the main thread once camera detection finishes."""
+        # Remove loading overlay
+        if self._overlay:
+            self._overlay.destroy()
+            self._overlay = None
+
+        self.cameras = cameras
 
         for idx, cam in enumerate(self.cameras):
             grabber = FrameGrabber(cam["cap"])
@@ -338,7 +400,11 @@ class App:
             w.destroy()
         self.cards.clear()
         self.primary = self.secondary = None
-        self._scan()
+
+        self._overlay = LoadingOverlay(self.card_frame)
+        self._overlay.pack(expand=True, fill="both")
+        self.status.config(text="Scanning cameras…", fg=TEXT_SECONDARY)
+        threading.Thread(target=self._scan_bg, daemon=True).start()
 
     def _teardown(self):
         for g in self.grabbers:
@@ -388,8 +454,6 @@ class App:
             json.dump(config, f, indent=2)
 
         self.status.config(text=f"✔  Saved to {CONFIG_FILE}", fg=POSITIVE)
-
-        # Auto-close the window after a short delay so the process exits
         self.root.after(500, lambda: (self.cleanup(), self.root.destroy()))
 
     # ── Render loop ───────────────────────────────────────────────────────────
@@ -397,7 +461,7 @@ class App:
     def _tick(self):
         for card in self.cards:
             card.refresh()
-        self.root.after(16, self._tick)
+        self.root.after(TICK_MS, self._tick)
 
     def cleanup(self):
         self._teardown()

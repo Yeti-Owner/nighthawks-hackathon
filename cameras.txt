@@ -1,0 +1,10 @@
+{
+  "primary": {
+    "id": 0,
+    "name": "Camera 0"
+  },
+  "secondary": {
+    "id": 1,
+    "name": "Camera 1"
+  }
+}

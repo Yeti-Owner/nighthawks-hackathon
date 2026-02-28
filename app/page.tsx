@@ -29,8 +29,11 @@ const socialStats = [
 export default function LandingPage() {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const handleEndSession = async () => {
+    // 1. Stop trackers
     try {
       await fetch('http://localhost:8000/stop/study_tracker', { method: 'POST' });
       await fetch('http://localhost:8000/stop/noti_watcher', { method: 'POST' });
@@ -38,6 +41,32 @@ export default function LandingPage() {
       console.error('Failed to stop scripts', err);
     }
     setIsSessionActive(false);
+
+    // 2. Sync data to/from Vultr
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      // Send CSVs
+      await fetch('http://localhost:8000/sync/send', { method: 'POST' });
+      // Poll until send completes (max ~30s)
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const res = await fetch('http://localhost:8000/sync/send/status');
+        const data = await res.json();
+        if (data.status !== 'running') break;
+      }
+      // Receive data from server
+      const recvRes = await fetch('http://localhost:8000/sync/receive', { method: 'POST' });
+      const recvData = await recvRes.json();
+      const ok = recvData.status === 'ok';
+      setSyncResult(ok ? 'Data synced successfully!' : 'Sync completed with some issues.');
+    } catch (err) {
+      console.error('Sync failed', err);
+      setSyncResult('Sync failed — server may be offline.');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncResult(null), 5000);
+    }
   };
 
   return (
@@ -156,16 +185,31 @@ export default function LandingPage() {
             ) : (
               <button
                 onClick={handleEndSession}
+                disabled={isSyncing}
                 className="btn-large"
-                style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 99, padding: '0 32px', fontWeight: 600 }}
+                style={{ background: isSyncing ? '#888' : '#C0392B', color: '#fff', border: 'none', borderRadius: 99, padding: '0 32px', fontWeight: 600, opacity: isSyncing ? 0.7 : 1 }}
               >
-                End Session
+                {isSyncing ? 'Syncing…' : 'End Session'}
               </button>
             )}
             <Link href="/stats" className="btn-ghost btn-large">
               View Demo Stats
             </Link>
           </div>
+
+          {/* Sync status feedback */}
+          {(isSyncing || syncResult) && (
+            <div className="mt-4 flex items-center gap-2" style={{ fontFamily: 'var(--font-sans)', fontSize: 13 }}>
+              {isSyncing && (
+                <span style={{ color: '#B07A4A' }}>⏳ Uploading session data & syncing…</span>
+              )}
+              {syncResult && !isSyncing && (
+                <span style={{ color: syncResult.includes('success') ? '#4A6741' : '#C0392B' }}>
+                  {syncResult}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Floating Session Card Visual */}

@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "session_id": "1",
+    "time": "09:59:37",
+    "event": "SS"
+  },
+  {
+    "id": 2,
+    "session_id": "1",
+    "time": "09:59:42",
+    "event": "LA"
+  },
+  {
+    "id": 3,
+    "session_id": "1",
+    "time": "09:59:43",
+    "event": "LB"
+  },
+  {
+    "id": 4,
+    "session_id": "1",
+    "time": "09:59:47",
+    "event": "LA"
+  },
+  {
+    "id": 5,
+    "session_id": "1",
+    "time": "09:59:48",
+    "event": "LB"
+  },
+  {
+    "id": 6,
+    "session_id": "1",
+    "time": "09:59:49",
+    "event": "LA"
+  },
+  {
+    "id": 7,
+    "session_id": "1",
+    "time": "09:59:50",
+    "event": "LB"
+  },
+  {
+    "id": 8,
+    "session_id": "1",
+    "time": "09:59:54",
+    "event": "SE"
+  }
+]

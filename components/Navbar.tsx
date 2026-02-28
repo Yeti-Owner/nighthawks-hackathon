@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth0 } from '@auth0/auth0-react';
 
 const navLinks = [
     { href: '/', label: 'Overview' },
@@ -11,7 +10,6 @@ const navLinks = [
 
 export default function Navbar() {
     const pathname = usePathname();
-    const { isAuthenticated, loginWithRedirect, logout, user, isLoading } = useAuth0();
 
     return (
         <nav
@@ -75,58 +73,10 @@ export default function Navbar() {
                 ))}
             </div>
 
-            {/* Auth Actions */}
-            <div className="flex items-center gap-4">
-                {!isLoading && (
-                    isAuthenticated ? (
-                        <>
-                            <span
-                                style={{
-                                    fontSize: 12,
-                                    color: '#666666',
-                                    fontFamily: 'var(--font-sans), sans-serif',
-                                    fontWeight: 500
-                                }}
-                            >
-                                {user?.email}
-                            </span>
-                            <button
-                                className="btn-primary"
-                                style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer' }}
-                                onClick={() => logout({ logoutParams: { returnTo: typeof window !== 'undefined' ? window.location.origin : '' } })}
-                            >
-                                Logout
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <button
-                                style={{
-                                    height: 40,
-                                    padding: '0 24px',
-                                    fontSize: 11,
-                                    cursor: 'pointer',
-                                    background: 'transparent',
-                                    border: '1px solid #A8A9AD',
-                                    color: '#1A1A1A',
-                                    fontWeight: 600,
-                                    borderRadius: 4
-                                }}
-                                onClick={() => loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } })}
-                            >
-                                Register
-                            </button>
-                            <button
-                                className="btn-primary"
-                                style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer' }}
-                                onClick={() => loginWithRedirect()}
-                            >
-                                Login
-                            </button>
-                        </>
-                    )
-                )}
-            </div>
+            {/* CTA Button — Auth0 integration pending */}
+            <button className="btn-primary" style={{ height: 40, padding: '0 24px', fontSize: 11, cursor: 'pointer' }}>
+                Login / Register
+            </button>
         </nav>
     );
 }

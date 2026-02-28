@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1,
+    "iteration": 1,
+    "time_held": 1.2
+  },
+  {
+    "id": 2,
+    "iteration": 2,
+    "time_held": 3.8
+  },
+  {
+    "id": 3,
+    "iteration": 3,
+    "time_held": 2.4
+  },
+  {
+    "id": 4,
+    "iteration": 4,
+    "time_held": 8.1
+  },
+  {
+    "id": 5,
+    "iteration": 5,
+    "time_held": 5.7
+  }
+]

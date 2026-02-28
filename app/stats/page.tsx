@@ -335,30 +335,88 @@ export default function StatsDashboard() {
             {/* Main Content Area */}
             <main className="flex-1 ml-[216px] pl-0 pr-[48px] py-[48px] md:py-[64px] max-w-[1440px]" style={{ position: 'relative', zIndex: 1 }}>
 
-                {/* Top Header Row */}
-                <div className="flex items-end justify-between mb-16 animate-fade-up">
-                    <div>
-                        {/* Decorative accent line above title */}
-                        <div style={{ width: 40, height: 2, background: 'linear-gradient(90deg, #D7C3B3, transparent)', borderRadius: 99, marginBottom: 16 }} />
-                        <span className="micro-label text-[var(--color-accent-metal)] block mb-4">
-                            {activePeriod.toUpperCase()} SUMMARY • {new Date().getFullYear()}
-                        </span>
-                        <h1
-                            style={{
-                                fontFamily: 'var(--font-serif), serif',
-                                fontSize: 40,
-                                color: '#1A1A1A',
-                                letterSpacing: '-0.02em',
-                                lineHeight: 1.1,
-                                margin: 0
-                            }}
-                        >
-                            Your Focus Report
-                        </h1>
+                {/* ── Hero Banner ── */}
+                <div style={{
+                    position: 'relative',
+                    borderRadius: 20,
+                    overflow: 'hidden',
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(249,248,245,0.85) 100%)',
+                    border: '1px solid rgba(215,195,179,0.25)',
+                    backdropFilter: 'blur(20px)',
+                    padding: '40px 48px 36px',
+                    marginBottom: 48,
+                    boxShadow: '0 4px 40px rgba(44,62,80,0.06)',
+                }}>
+                    {/* Background radial glow */}
+                    <div aria-hidden style={{
+                        position: 'absolute', top: -60, right: -60,
+                        width: 340, height: 340,
+                        background: 'radial-gradient(circle, rgba(215,195,179,0.28) 0%, transparent 70%)',
+                        pointerEvents: 'none', borderRadius: '50%',
+                    }} />
+                    {/* Decorative concentric arc */}
+                    <svg aria-hidden style={{ position: 'absolute', right: 48, top: '50%', transform: 'translateY(-50%)', opacity: 0.22 }} width={180} height={180}>
+                        <circle cx={90} cy={90} r={70} fill="none" stroke="#D7C3B3" strokeWidth="1.5" />
+                        <circle cx={90} cy={90} r={50} fill="none" stroke="#D7C3B3" strokeWidth="1.5" />
+                        <circle cx={90} cy={90} r={30} fill="none" stroke="#2C3E50" strokeWidth="2" />
+                    </svg>
+
+                    {/* Top row: date pill + export button */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {/* Live status dot */}
+                            <div style={{ position: 'relative', width: 8, height: 8 }}>
+                                <div style={{ position: 'absolute', inset: -3, borderRadius: '50%', background: 'rgba(74,103,65,0.2)', animation: 'pulseRing 2s ease-in-out infinite' }} />
+                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4A6741' }} />
+                            </div>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: '#4A6741' }}>LIVE</span>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#B0B0B0', marginLeft: 4 }}>
+                                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                            </span>
+                        </div>
                     </div>
-                    <button className="btn-ghost" style={{ height: 40, padding: '0 24px', fontSize: 11 }}>
-                        Export PDF
-                    </button>
+
+                    {/* Overline label */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                        <div style={{ width: 32, height: 2, background: 'linear-gradient(90deg, #D7C3B3, transparent)', borderRadius: 99 }} />
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#C8B89A' }}>
+                            {activePeriod.toUpperCase()} INTELLIGENCE REPORT
+                        </span>
+                    </div>
+
+                    {/* Main headline */}
+                    <h1 style={{
+                        fontFamily: 'var(--font-serif), serif',
+                        fontSize: 64,
+                        color: '#1A1A1A',
+                        letterSpacing: '-0.03em',
+                        lineHeight: 1.0,
+                        margin: '0 0 12px',
+                    }}>
+                        Your Focus<br />
+                        <span style={{ color: '#B07A4A' }}>Report.</span>
+                    </h1>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#888', margin: '0 0 32px', lineHeight: 1.5, maxWidth: 420 }}>
+                        A deep look into your attention patterns, distractions, and productivity rhythms — all in one place.
+                    </p>
+
+                    {/* Divider */}
+                    <div style={{ height: 1, background: 'linear-gradient(90deg, rgba(215,195,179,0.5), rgba(44,62,80,0.08), transparent)', marginBottom: 28 }} />
+
+                    {/* Quick-stat chips */}
+                    <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                        {[
+                            { label: 'Study Time', value: `${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`, accent: '#2C3E50' },
+                            { label: 'Sessions', value: String(totalSessions), accent: '#B07A4A' },
+                            { label: 'Focus Score', value: `${avgFocusScore} / 100`, accent: '#4A6741' },
+                            { label: 'Interruptions', value: String(totalInterruptions), accent: '#C0392B' },
+                        ].map(({ label, value, accent }) => (
+                            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#B0B0B0' }}>{label}</span>
+                                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: accent, letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Row 1: KPI Cards */}

@@ -12,7 +12,7 @@ export default function UserSync() {
         if (isAuthenticated && user?.sub && !hasSynced.current) {
             hasSynced.current = true;
 
-            fetch('http://localhost:8000/user', {
+            fetch('/api/user', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

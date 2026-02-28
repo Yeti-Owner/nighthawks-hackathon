@@ -8,21 +8,24 @@ import {
     totalStudyMinutes,
     totalSessions,
     avgFocusScore,
-    totalInterruptions,
-    totalPhonePickups,
-    avgUnattendedMinutes,
-    longestUnattended,
-    totalLookAways,
-    avgLookAwaySeconds,
-    longestLookAway,
-    totalSecondsDistracted,
-    distractionSources,
-    phonePickupEvents,
-    faceAwayEvents,
-    studySessions,
 } from './data';
 
-export async function exportFocusReportPdf() {
+export async function exportFocusReportPdf(data: any) {
+    const {
+        totalInterruptions,
+        totalPhonePickups,
+        avgUnattendedMinutes,
+        longestUnattended,
+        totalLookAways,
+        avgLookAwaySeconds,
+        longestLookAway,
+        totalSecondsDistracted,
+        distractionSources,
+        phonePickupEvents,
+        faceAwayEvents,
+        studySessions,
+    } = data;
+
     // Dynamically import jsPDF so it only loads client-side
     const { jsPDF } = await import('jspdf');
 
@@ -180,7 +183,7 @@ export async function exportFocusReportPdf() {
 
     // ── Interruption Breakdown ──
     sectionTitle('Interruption Source Breakdown');
-    distractionSources.forEach((src, i) => {
+    distractionSources.forEach((src: any, i: number) => {
         checkPageBreak(12);
         const pct = Math.round((src.value / totalInterruptions) * 100);
         const barW = (src.value / totalInterruptions) * (CONTENT_W - 50);

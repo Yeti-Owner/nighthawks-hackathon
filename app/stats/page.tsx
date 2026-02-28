@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import LiquidCard from '../../components/LiquidCard';
 import KpiCard from '../../components/KpiCard';
 import DailyHoursChart from '../../components/charts/DailyHoursChart';
@@ -14,15 +14,14 @@ import {
     totalStudyMinutes,
     totalSessions,
     avgFocusScore,
-    totalInterruptions,
-    totalPhonePickups,
-    avgUnattendedMinutes,
-    longestUnattended,
-    totalLookAways,
-    avgLookAwaySeconds,
-    longestLookAway,
-    totalSecondsDistracted,
+    processNotifications,
+    processFaceEvents,
+    processPickups,
+    type PhonePickupEvent,
+    type FaceAwayEvent,
 } from '../../lib/data';
+import { exportFocusReportPdf } from '../../lib/exportPdf';
+import type { DistractionSource, TopApp } from '../../lib/types';
 
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 
@@ -33,8 +32,43 @@ function StatsDashboard() {
     const [activePeriod, setActivePeriod] = useState('Today');
     const [activeFilter, setActiveFilter] = useState('All Filters');
 
+    // Dynamic data states
+    const [isLoading, setIsLoading] = useState(true);
+    const [distractionStats, setDistractionStats] = useState({ sources: [] as DistractionSource[], apps: [] as TopApp[], total: 0 });
+    const [faceStats, setFaceStats] = useState({ events: [] as FaceAwayEvent[], total: 0, avg: 0, longest: 0, totalDistracted: 0 });
+    const [pickupStats, setPickupStats] = useState({ events: [] as PhonePickupEvent[], total: 0, avgUnattended: 0, longestUnattended: 0 });
+
     const phonePickupsRef = useRef<HTMLDivElement>(null);
     const faceDetectionRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        async function loadData() {
+            try {
+                const [notifRes, faceRes, pickupRes] = await Promise.all([
+                    fetch('/notifications.json'),
+                    fetch('/session_log.json'),
+                    fetch('/pickedup.json')
+                ]);
+
+                const notifJson = notifRes.ok ? await notifRes.json() : [];
+                const faceJson = faceRes.ok ? await faceRes.json() : [];
+                const pickupJson = pickupRes.ok ? await pickupRes.json() : [];
+
+                const dStats = processNotifications(notifJson);
+                const fStats = processFaceEvents(faceJson);
+                const pStats = processPickups(pickupJson);
+
+                setDistractionStats({ sources: dStats.distractionSources, apps: dStats.topApps, total: dStats.totalInterruptions });
+                setFaceStats({ events: fStats.faceAwayEvents, total: fStats.totalLookAways, avg: fStats.avgLookAwaySeconds, longest: fStats.longestLookAway, totalDistracted: fStats.totalSecondsDistracted });
+                setPickupStats({ events: pStats.phonePickupEvents, total: pStats.totalPhonePickups, avgUnattended: pStats.avgUnattendedMinutes, longestUnattended: pStats.longestUnattended });
+            } catch (e) {
+                console.error("Failed to load local JSON files:", e);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        loadData();
+    }, []);
 
     function handleFilterClick(filter: string) {
         setActiveFilter(filter);
@@ -47,6 +81,14 @@ function StatsDashboard() {
                 faceDetectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 50);
         }
+    }
+
+    if (isLoading) {
+        return (
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9F8F5' }}>
+                <div className="animate-pulse-glow" style={{ width: 40, height: 40, borderRadius: '50%', background: '#D7C3B3' }} />
+            </div>
+        );
     }
 
     return (
@@ -152,8 +194,8 @@ function StatsDashboard() {
                         <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 14 }}>TODAY AT A GLANCE</p>
                         {[
                             { label: 'Study time', value: '2h 47m', color: '#2C3E50' },
-                            { label: 'Phone pickups', value: `${totalPhonePickups}×`, color: '#B07A4A' },
-                            { label: 'Look-aways', value: `${totalLookAways}×`, color: '#C0392B' },
+                            { label: 'Phone pickups', value: `${pickupStats.total}×`, color: '#B07A4A' },
+                            { label: 'Look-aways', value: `${faceStats.total}×`, color: '#C0392B' },
                             { label: 'Focus score', value: `${avgFocusScore}`, color: '#4A6741' },
                         ].map(({ label, value, color }) => (
                             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -376,6 +418,32 @@ function StatsDashboard() {
                                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                             </span>
                         </div>
+
+                        <button
+                            onClick={() => exportFocusReportPdf({
+                                totalInterruptions: distractionStats.total,
+                                totalPhonePickups: pickupStats.total,
+                                avgUnattendedMinutes: pickupStats.avgUnattended,
+                                longestUnattended: pickupStats.longestUnattended,
+                                totalLookAways: faceStats.total,
+                                avgLookAwaySeconds: faceStats.avg,
+                                longestLookAway: faceStats.longest,
+                                totalSecondsDistracted: faceStats.totalDistracted,
+                                distractionSources: distractionStats.sources,
+                                phonePickupEvents: pickupStats.events,
+                                faceAwayEvents: faceStats.events,
+                                studySessions: require('../../lib/data').studySessions
+                            })}
+                            className="h-10 px-6 rounded-full inline-flex items-center gap-2 justify-center transition-all duration-300 border border-[#E5E5E5] text-[#1A1A1A] hover:bg-white hover:border-[#D7C3B3]"
+                            style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500 }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Export PDF
+                        </button>
                     </div>
 
                     {/* Overline label */}
@@ -411,7 +479,7 @@ function StatsDashboard() {
                             { label: 'Study Time', value: `${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`, accent: '#2C3E50' },
                             { label: 'Sessions', value: String(totalSessions), accent: '#B07A4A' },
                             { label: 'Focus Score', value: `${avgFocusScore} / 100`, accent: '#4A6741' },
-                            { label: 'Interruptions', value: String(totalInterruptions), accent: '#C0392B' },
+                            { label: 'Interruptions', value: String(distractionStats.total), accent: '#C0392B' },
                         ].map(({ label, value, accent }) => (
                             <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#B0B0B0' }}>{label}</span>
@@ -445,7 +513,7 @@ function StatsDashboard() {
                         delay={160}
                     />
                     <KpiCard
-                        value={totalInterruptions.toString()}
+                        value={distractionStats.total.toString()}
                         label="TOTAL INTERRUPTIONS"
                         trend="-18% vs last month"
                         trendType="positive"
@@ -484,11 +552,11 @@ function StatsDashboard() {
                 <div className="flex flex-col lg:flex-row gap-8 mb-[64px] animate-fade-up" style={{ animationDelay: '400ms' }}>
                     <LiquidCard padding="p-8" className="flex-grow w-full lg:w-[50%]">
                         <h3 className="micro-label mb-8">Interruption Source Breakdown</h3>
-                        <DistractionDonut />
+                        <DistractionDonut data={distractionStats.sources} />
                     </LiquidCard>
 
                     <div className="flex-grow w-full lg:w-[50%]">
-                        <TopAppsList />
+                        <TopAppsList data={distractionStats.apps} />
                     </div>
                 </div>
 
@@ -532,17 +600,17 @@ function StatsDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#B07A4A' }}>TOTAL PICKUPS</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{totalPhonePickups}</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{pickupStats.total}</p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>times today</p>
                         </LiquidCard>
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#4A6741' }}>AVG. FOCUS WINDOW</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{avgUnattendedMinutes}<span style={{ fontSize: 18, color: '#888' }}> min</span></p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{pickupStats.avgUnattended}<span style={{ fontSize: 18, color: '#888' }}> min</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>avg. between pickups</p>
                         </LiquidCard>
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#2C3E50' }}>BEST STREAK</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{longestUnattended}<span style={{ fontSize: 18, color: '#888' }}> min</span></p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{pickupStats.longestUnattended}<span style={{ fontSize: 18, color: '#888' }}> min</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>longest phone-free window</p>
                         </LiquidCard>
                     </div>
@@ -560,13 +628,13 @@ function StatsDashboard() {
                                 TODAY
                             </div>
                         </div>
-                        <PhonePickupsChart />
+                        <PhonePickupsChart data={pickupStats.events} />
 
                         {/* Event timeline list */}
                         <div style={{ marginTop: 28, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
                             <p className="micro-label mb-4">ALL PICKUP EVENTS</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
-                                {[...require('../../lib/data').phonePickupEvents].map((e: any, i: number) => (
+                                {pickupStats.events.map((e: any, i: number) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 12px', borderRadius: 8, background: i % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A1A', width: 44, flexShrink: 0 }}>{e.time}</span>
                                         <span style={{ fontSize: 12, color: '#B07A4A', flexShrink: 0 }}>📱 picked up for {e.durationSeconds}s</span>
@@ -618,22 +686,22 @@ function StatsDashboard() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#2C3E50' }}>TOTAL LOOK-AWAYS</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{totalLookAways}</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{faceStats.total}</p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>times today</p>
                         </LiquidCard>
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#B07A4A' }}>AVG. DURATION</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{avgLookAwaySeconds}<span style={{ fontSize: 18, color: '#888' }}>s</span></p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{faceStats.avg}<span style={{ fontSize: 18, color: '#888' }}>s</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>per look-away</p>
                         </LiquidCard>
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#C0392B' }}>LONGEST AWAY</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{longestLookAway}<span style={{ fontSize: 18, color: '#888' }}>s</span></p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{faceStats.longest}<span style={{ fontSize: 18, color: '#888' }}>s</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>single distraction</p>
                         </LiquidCard>
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#4A6741' }}>TOTAL DISTRACTED</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{Math.floor(totalSecondsDistracted / 60)}<span style={{ fontSize: 18, color: '#888' }}>m {totalSecondsDistracted % 60}s</span></p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{Math.floor(faceStats.totalDistracted / 60)}<span style={{ fontSize: 18, color: '#888' }}>m {faceStats.totalDistracted % 60}s</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>total time off-screen</p>
                         </LiquidCard>
                     </div>
@@ -648,7 +716,7 @@ function StatsDashboard() {
                                 TODAY
                             </div>
                         </div>
-                        <FaceDetectionChart />
+                        <FaceDetectionChart data={faceStats.events} />
 
                         <div style={{ display: 'flex', gap: 20, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                             {[
@@ -666,7 +734,7 @@ function StatsDashboard() {
                         <div style={{ marginTop: 20, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
                             <p className="micro-label mb-4">ALL LOOK-AWAY EVENTS</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
-                                {[...require('../../lib/data').faceAwayEvents].map((e: any, i: number) => {
+                                {faceStats.events.map((e: any, i: number) => {
                                     const severity = e.durationSeconds > 60 ? 'High' : e.durationSeconds > 20 ? 'Medium' : 'Low';
                                     const sColor = e.durationSeconds > 60 ? '#C0392B' : e.durationSeconds > 20 ? '#B07A4A' : '#4A6741';
                                     return (

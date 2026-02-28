@@ -11,13 +11,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
-import { phonePickupEvents } from '../../lib/data';
-
-const data = phonePickupEvents.map((e) => ({
-    time: e.time,
-    'Pickup Duration (s)': e.durationSeconds,
-    'Gap Since Last (min)': e.minutesUnattended,
-}));
+import type { PhonePickupEvent } from '../../lib/data';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !payload.length) return null;
@@ -51,10 +45,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
 };
 
-export default function PhonePickupsChart() {
+export default function PhonePickupsChart({ data }: { data: PhonePickupEvent[] }) {
+    const chartData = data.map((e) => ({
+        time: e.time,
+        'Pickup Duration (s)': e.durationSeconds,
+        'Gap Since Last (min)': e.minutesUnattended,
+    }));
+
     return (
         <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis
                     dataKey="time"

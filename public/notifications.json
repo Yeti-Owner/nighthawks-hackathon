@@ -1,0 +1,101 @@
+[
+  {
+    "id": 1,
+    "timestamp": "capture_13_57_10_ON",
+    "filename": "capture_13_57_10_ON.png",
+    "has_notification": "True",
+    "urgency": "Low",
+    "source": "WhatsApp",
+    "sender": "John Doe",
+    "summary": "Hey, how is it going?",
+    "error": ""
+  },
+  {
+    "id": 2,
+    "timestamp": "capture_13_58_05_ON",
+    "filename": "capture_13_58_05_ON.png",
+    "has_notification": "False",
+    "urgency": "High",
+    "source": "",
+    "sender": "",
+    "summary": "",
+    "error": ""
+  },
+  {
+    "id": 3,
+    "timestamp": "capture_10_48_45_ON",
+    "filename": "capture_10_48_45_ON.png",
+    "has_notification": "True",
+    "urgency": "Medium",
+    "source": "Snapchat",
+    "sender": "Leah",
+    "summary": "Leah sent you a Snap.",
+    "error": ""
+  },
+  {
+    "id": 4,
+    "timestamp": "3_optimized",
+    "filename": "3_optimized.png",
+    "has_notification": "False",
+    "urgency": "",
+    "source": "",
+    "sender": "",
+    "summary": "",
+    "error": ""
+  },
+  {
+    "id": 5,
+    "timestamp": "4_optimized",
+    "filename": "4_optimized.png",
+    "has_notification": "True",
+    "urgency": "Medium",
+    "source": "iMessage",
+    "sender": "Leah",
+    "summary": "Leah is upset because she stuttered a lot while recording a video for an assignment.",
+    "error": ""
+  },
+  {
+    "id": 6,
+    "timestamp": "1",
+    "filename": "1.png",
+    "has_notification": "True",
+    "urgency": "Medium",
+    "source": "Snapchat",
+    "sender": "Leah",
+    "summary": "Leah sent you a Snap.",
+    "error": ""
+  },
+  {
+    "id": 7,
+    "timestamp": "2",
+    "filename": "2.png",
+    "has_notification": "False",
+    "urgency": "",
+    "source": "",
+    "sender": "",
+    "summary": "",
+    "error": ""
+  },
+  {
+    "id": 8,
+    "timestamp": "4",
+    "filename": "4.png",
+    "has_notification": "True",
+    "urgency": "Medium",
+    "source": "Messages",
+    "sender": "Leah",
+    "summary": "Leah recorded her video for the assignment and was stuttering badly, feeling like crying.",
+    "error": ""
+  },
+  {
+    "id": 9,
+    "timestamp": "8",
+    "filename": "8.png",
+    "has_notification": "True",
+    "urgency": "Low",
+    "source": "Discord",
+    "sender": "MusiCat",
+    "summary": "MusiCat is sending something.",
+    "error": ""
+  }
+]

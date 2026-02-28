@@ -1,8 +1,8 @@
-import { topApps, distractionSources } from '../lib/data';
 import LiquidCard from './LiquidCard';
+import type { TopApp } from '../lib/types';
 
-export default function TopAppsList() {
-    const maxCount = Math.max(...topApps.map(app => app.count));
+export default function TopAppsList({ data }: { data: TopApp[] }) {
+    const maxCount = Math.max(...data.map(app => app.count));
 
     // Try to match app colors based on standard brand colors or fall back to luxury palette
     const getAppColor = (name: string) => {
@@ -23,7 +23,7 @@ export default function TopAppsList() {
             </div>
 
             <div className="flex flex-col gap-4">
-                {topApps.map((app, index) => {
+                {data.map((app, i) => {
                     const widthPercent = (app.count / maxCount) * 100;
                     const color = getAppColor(app.name);
 

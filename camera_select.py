@@ -1,110 +1,185 @@
 import cv2
 import json
+import threading
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 
-CONFIG_FILE = "cameras.txt"
-MAX_CAMERAS = 6
-THUMB_W, THUMB_H = 320, 200
-SCAN_LIMIT = 8
+# ─── Config ───────────────────────────────────────────────────────────────────
+CONFIG_FILE     = "cameras.txt"
+SCAN_LIMIT      = 8          # How many indices to probe
+MAX_CAMERAS     = 6          # Cap on cameras shown
+THUMB_W         = 320
+THUMB_H         = 200
+FILTER_VIRTUAL  = True       # Skip virtual cameras (OBS, NVIDIA Broadcast, etc.)
+
+VIRTUAL_KEYWORDS = [
+    "obs", "nvidia broadcast", "nvidia rtx", "virtual", "droidcam",
+    "epoccam", "iriun", "snap camera", "xsplit", "manycam", "camo",
+    "ndi", "streamlabs", "lgs", "logitech capture", "ivcam",
+]
+
+# ─── Camera detection (run once at startup) ────────────────────────────────────
+
+def get_camera_name(index):
+    """Use pygrabber/Windows to get real device name; fallback to generic."""
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        graph = FilterGraph()
+        devices = graph.get_input_devices()
+        if index < len(devices):
+            return devices[index]
+    except Exception:
+        pass
+    return f"Camera {index}"
+
+
+def is_virtual(name: str) -> bool:
+    low = name.lower()
+    return any(kw in low for kw in VIRTUAL_KEYWORDS)
 
 
 def detect_cameras():
-    """Scan for cameras using CAP_DSHOW to avoid backend errors on Windows."""
     cameras = []
     for i in range(SCAN_LIMIT):
+        # Try DSHOW first, fall back to ANY
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-        if cap.isOpened():
-            ret, _ = cap.read()
-            if ret:
-                cameras.append({"id": i, "cap": cap})
-            else:
-                cap.release()
-        else:
+        if not cap.isOpened():
             cap.release()
+            cap = cv2.VideoCapture(i)
+        if not cap.isOpened():
+            cap.release()
+            continue
+
+        ret, _ = cap.read()
+        if not ret:
+            cap.release()
+            continue
+
+        name = get_camera_name(i)
+
+        if FILTER_VIRTUAL and is_virtual(name):
+            cap.release()
+            continue
+
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize latency
+
+        cameras.append({"id": i, "name": name, "cap": cap})
         if len(cameras) >= MAX_CAMERAS:
             break
+
     return cameras
 
 
-class CameraCard(tk.Frame):
-    COLORS = {"primary": "#00c853", "secondary": "#2979ff", None: "#1e1e1e"}
+# ─── Per-camera frame grabber (background thread) ──────────────────────────────
 
-    def __init__(self, parent, cam, on_select):
+class FrameGrabber:
+    """Continuously grabs frames in a daemon thread; UI reads latest."""
+
+    def __init__(self, cap):
+        self.cap   = cap
+        self.frame = None
+        self.lock  = threading.Lock()
+        self._stop = threading.Event()
+        self._t    = threading.Thread(target=self._run, daemon=True)
+        self._t.start()
+
+    def _run(self):
+        while not self._stop.is_set():
+            ret, frame = self.cap.read()
+            if ret:
+                frame = cv2.resize(frame, (THUMB_W, THUMB_H))
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                with self.lock:
+                    self.frame = frame
+
+    def get_frame(self):
+        with self.lock:
+            return self.frame
+
+    def stop(self):
+        self._stop.set()
+        self._t.join(timeout=1)
+
+
+# ─── Camera card widget ────────────────────────────────────────────────────────
+
+class CameraCard(tk.Frame):
+    COLORS = {None: "#1e1e1e", "primary": "#00c853", "secondary": "#2979ff"}
+
+    def __init__(self, parent, cam, grabber, on_select):
         super().__init__(parent, bd=2, relief="groove", bg="#1e1e1e")
-        self.cam = cam
-        self.on_select = on_select
-        self.selected_as = None
-        self._img_ref = None
+        self.cam     = cam
+        self.grabber = grabber
+        self._role   = None
+        self._imref  = None
 
         self.canvas = tk.Canvas(self, width=THUMB_W, height=THUMB_H,
-                                bg="black", highlightthickness=0)
+                                bg="#111", highlightthickness=0)
         self.canvas.pack()
 
-        self.label = tk.Label(self, text=f"Camera {cam['id']}",
-                              bg="#1e1e1e", fg="white",
-                              font=("Helvetica", 10, "bold"))
-        self.label.pack(pady=(4, 2))
+        self._label = tk.Label(self, text=f"[{cam['id']}] {cam['name']}",
+                               bg="#1e1e1e", fg="white",
+                               font=("Helvetica", 9, "bold"))
+        self._label.pack(pady=(4, 2))
 
         btn_frame = tk.Frame(self, bg="#1e1e1e")
         btn_frame.pack(pady=(0, 8))
         self._btn_frame = btn_frame
 
-        self.pri_btn = tk.Button(btn_frame, text="Set Primary", width=11,
-                                 command=lambda: on_select(self, "primary"),
-                                 bg="#333", fg="white", relief="flat", cursor="hand2")
-        self.pri_btn.pack(side="left", padx=4)
+        tk.Button(btn_frame, text="Set Primary", width=11,
+                  command=lambda: on_select(self, "primary"),
+                  bg="#333", fg="white", relief="flat", cursor="hand2"
+                  ).pack(side="left", padx=4)
 
-        self.sec_btn = tk.Button(btn_frame, text="Set Secondary", width=12,
-                                 command=lambda: on_select(self, "secondary"),
-                                 bg="#333", fg="white", relief="flat", cursor="hand2")
-        self.sec_btn.pack(side="left", padx=4)
+        tk.Button(btn_frame, text="Set Secondary", width=12,
+                  command=lambda: on_select(self, "secondary"),
+                  bg="#333", fg="white", relief="flat", cursor="hand2"
+                  ).pack(side="left", padx=4)
 
-    def update_frame(self):
-        ret, frame = self.cam["cap"].read()
-        if ret:
-            frame = cv2.resize(frame, (THUMB_W, THUMB_H))
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    def refresh(self):
+        frame = self.grabber.get_frame()
+        if frame is not None:
             img = ImageTk.PhotoImage(Image.fromarray(frame))
             self.canvas.create_image(0, 0, anchor="nw", image=img)
-            self._img_ref = img
+            self._imref = img  # prevent GC
 
-    def set_highlight(self, role):
-        self.selected_as = role
+    def set_role(self, role):
+        self._role = role
         color = self.COLORS[role]
         self.config(bg=color)
         self._btn_frame.config(bg=color)
-        self.label.config(bg=color)
+        self._label.config(bg=color)
+        suffix = {"primary": "  ✔ PRIMARY", "secondary": "  ✔ SECONDARY", None: ""}
+        self._label.config(text=f"[{self.cam['id']}] {self.cam['name']}{suffix[role]}")
 
-        role_text = {
-            None: f"Camera {self.cam['id']}",
-            "primary": f"Camera {self.cam['id']}  ✔ PRIMARY",
-            "secondary": f"Camera {self.cam['id']}  ✔ SECONDARY",
-        }
-        self.label.config(text=role_text[role])
 
+# ─── Main application ──────────────────────────────────────────────────────────
 
 class App:
     def __init__(self, root):
-        self.root = root
+        self.root     = root
         self.root.title("Camera Selector")
         self.root.configure(bg="#121212")
-        self.root.resizable(True, True)
 
-        self.cameras = []
-        self.cards = []
-        self.primary_card = None
-        self.secondary_card = None
+        self.cameras  = []
+        self.grabbers = []
+        self.cards    = []
+        self.primary  = None
+        self.secondary = None
 
         self._build_header()
-
         self.card_frame = tk.Frame(self.root, bg="#121212")
         self.card_frame.pack(padx=16, pady=8, fill="both", expand=True)
-
         self._build_footer()
-        self._scan_cameras()
+
+        self._scan()
         self._tick()
+
+    # ── Layout ────────────────────────────────────────────────────────────────
 
     def _build_header(self):
         hdr = tk.Frame(self.root, bg="#121212")
@@ -123,72 +198,82 @@ class App:
                   font=("Helvetica", 11, "bold"), padx=20, pady=6).pack(side="right")
         self.status = tk.Label(ftr, text="", bg="#121212", fg="#aaaaaa",
                                font=("Helvetica", 10))
-        self.status.pack(side="left", anchor="w")
+        self.status.pack(side="left")
 
-    def _scan_cameras(self):
+    # ── Camera scanning ───────────────────────────────────────────────────────
+
+    def _scan(self):
         self.status.config(text="Scanning cameras...", fg="#aaaaaa")
         self.root.update()
 
         self.cameras = detect_cameras()
-        for card in self.cards:
-            card.destroy()
-        self.cards.clear()
-        self.primary_card = None
-        self.secondary_card = None
+
+        cols = min(max(len(self.cameras), 1), 3)
+        for idx, cam in enumerate(self.cameras):
+            grabber = FrameGrabber(cam["cap"])
+            self.grabbers.append(grabber)
+            card = CameraCard(self.card_frame, cam, grabber, self._on_select)
+            card.grid(row=idx // cols, column=idx % cols, padx=10, pady=10)
+            self.cards.append(card)
 
         if not self.cameras:
             tk.Label(self.card_frame, text="No cameras detected.",
                      bg="#121212", fg="#ff5252",
                      font=("Helvetica", 12)).pack(pady=40)
             self.status.config(text="No cameras found.", fg="#ff5252")
-            return
-
-        cols = min(len(self.cameras), 3)
-        for idx, cam in enumerate(self.cameras):
-            card = CameraCard(self.card_frame, cam, self._on_select)
-            card.grid(row=idx // cols, column=idx % cols, padx=10, pady=10)
-            self.cards.append(card)
-
-        self.status.config(
-            text=f"{len(self.cameras)} camera(s) found. Click a card to set primary / secondary.",
-            fg="#aaaaaa"
-        )
+        else:
+            self.status.config(
+                text=f"{len(self.cameras)} camera(s) found.",
+                fg="#aaaaaa"
+            )
 
     def _rescan(self):
+        self._teardown()
+        for w in self.card_frame.winfo_children():
+            w.destroy()
+        self.cards.clear()
+        self.primary = self.secondary = None
+        self._scan()
+
+    def _teardown(self):
+        for g in self.grabbers:
+            g.stop()
         for cam in self.cameras:
             cam["cap"].release()
-        for widget in self.card_frame.winfo_children():
-            widget.destroy()
-        self._scan_cameras()
+        self.grabbers.clear()
+        self.cameras.clear()
+
+    # ── Selection ─────────────────────────────────────────────────────────────
 
     def _on_select(self, card, role):
-        # Clear previous holder of this role
-        if role == "primary" and self.primary_card and self.primary_card is not card:
-            self.primary_card.set_highlight(None)
-        if role == "secondary" and self.secondary_card and self.secondary_card is not card:
-            self.secondary_card.set_highlight(None)
+        # Clear whoever previously held this role
+        current = self.primary if role == "primary" else self.secondary
+        if current and current is not card:
+            current.set_role(None)
 
-        # If card already had the other role, clear it
-        if role == "primary" and self.secondary_card is card:
-            self.secondary_card = None
-        if role == "secondary" and self.primary_card is card:
-            self.primary_card = None
+        # If this card held the OTHER role, clear that slot too
+        if role == "primary" and self.secondary is card:
+            self.secondary = None
+        if role == "secondary" and self.primary is card:
+            self.primary = None
 
         if role == "primary":
-            self.primary_card = card
+            self.primary = card
         else:
-            self.secondary_card = card
+            self.secondary = card
 
-        card.set_highlight(role)
+        card.set_role(role)
+
+    # ── Save ──────────────────────────────────────────────────────────────────
 
     def _save(self):
         config = {}
-        if self.primary_card:
-            cid = self.primary_card.cam["id"]
-            config["primary"] = {"id": cid, "name": f"Camera {cid}"}
-        if self.secondary_card:
-            cid = self.secondary_card.cam["id"]
-            config["secondary"] = {"id": cid, "name": f"Camera {cid}"}
+        if self.primary:
+            c = self.primary.cam
+            config["primary"] = {"id": c["id"], "name": c["name"]}
+        if self.secondary:
+            c = self.secondary.cam
+            config["secondary"] = {"id": c["id"], "name": c["name"]}
 
         if not config:
             messagebox.showwarning("Nothing selected",
@@ -200,15 +285,18 @@ class App:
 
         self.status.config(text=f"✔  Saved to {CONFIG_FILE}", fg="#69f0ae")
 
+    # ── Render loop ───────────────────────────────────────────────────────────
+
     def _tick(self):
         for card in self.cards:
-            card.update_frame()
-        self.root.after(33, self._tick)  # ~30 fps
+            card.refresh()
+        self.root.after(16, self._tick)  # ~60 fps UI poll
 
     def cleanup(self):
-        for cam in self.cameras:
-            cam["cap"].release()
+        self._teardown()
 
+
+# ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     root = tk.Tk()

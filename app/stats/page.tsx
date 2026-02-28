@@ -48,7 +48,32 @@ export default function StatsDashboard() {
     }
 
     return (
-        <div className="flex min-h-screen bg-[#F9F8F5] pt-[64px]">
+        <div className="flex min-h-screen pt-[64px]" style={{ background: '#F9F8F5', position: 'relative' }}>
+
+            {/* ── Global dot-grid background ── */}
+            <div aria-hidden style={{
+                position: 'fixed',
+                inset: 0,
+                backgroundImage: 'radial-gradient(circle, rgba(44,62,80,0.055) 1px, transparent 1px)',
+                backgroundSize: '28px 28px',
+                maskImage: 'radial-gradient(ellipse 85% 85% at 60% 40%, black 20%, transparent 100%)',
+                WebkitMaskImage: 'radial-gradient(ellipse 85% 85% at 60% 40%, black 20%, transparent 100%)',
+                pointerEvents: 'none',
+                zIndex: 0,
+            }} />
+
+            {/* ── Warm glow top-right ── */}
+            <div aria-hidden className="animate-pulse-glow" style={{
+                position: 'fixed',
+                width: 480,
+                height: 480,
+                right: -80,
+                top: -80,
+                background: 'radial-gradient(circle, rgba(215,195,179,0.35) 0%, transparent 70%)',
+                borderRadius: '50%',
+                pointerEvents: 'none',
+                zIndex: 0,
+            }} />
 
             {/* Fixed Sidebar */}
             <aside
@@ -59,59 +84,262 @@ export default function StatsDashboard() {
                     borderBottom: 'none',
                     borderRadius: 0,
                     borderRight: '1px solid rgba(0,0,0,0.06)',
-                    zIndex: 40
+                    zIndex: 40,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                 }}
             >
-                <div className="mb-12">
-                    <h4 className="micro-label mb-6">PERIOD</h4>
-                    <div className="flex flex-col gap-4">
-                        {periods.map(period => (
-                            <button
-                                key={period}
-                                onClick={() => setActivePeriod(period)}
-                                className="text-left bg-transparent border-none cursor-pointer"
-                                style={{
-                                    fontFamily: 'var(--font-sans), sans-serif',
-                                    fontSize: 14,
-                                    fontWeight: activePeriod === period ? 600 : 400,
-                                    color: activePeriod === period ? '#1A1A1A' : '#666666',
-                                    transition: 'color 200ms cubic-bezier(0.25, 1, 0.5, 1)',
-                                }}
-                            >
-                                {period}
-                            </button>
-                        ))}
+                <div>
+                    <div className="mb-12">
+                        <h4 className="micro-label mb-6">PERIOD</h4>
+                        <div className="flex flex-col gap-4">
+                            {periods.map(period => (
+                                <button
+                                    key={period}
+                                    onClick={() => setActivePeriod(period)}
+                                    className="text-left bg-transparent border-none cursor-pointer"
+                                    style={{
+                                        fontFamily: 'var(--font-sans), sans-serif',
+                                        fontSize: 14,
+                                        fontWeight: activePeriod === period ? 600 : 400,
+                                        color: activePeriod === period ? '#1A1A1A' : '#666666',
+                                        transition: 'color 200ms cubic-bezier(0.25, 1, 0.5, 1)',
+                                    }}
+                                >
+                                    {period}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="micro-label mb-6">FILTERS</h4>
+                        <div className="flex flex-col gap-4">
+                            {filters.map(filter => (
+                                <button
+                                    key={filter}
+                                    onClick={() => handleFilterClick(filter)}
+                                    className="text-left bg-transparent border-none cursor-pointer"
+                                    style={{
+                                        fontFamily: 'var(--font-sans), sans-serif',
+                                        fontSize: 14,
+                                        fontWeight: activeFilter === filter ? 600 : 400,
+                                        color: activeFilter === filter ? '#1A1A1A' : '#666666',
+                                        transition: 'color 200ms cubic-bezier(0.25, 1, 0.5, 1)',
+                                    }}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
-                <div>
-                    <h4 className="micro-label mb-6">FILTERS</h4>
-                    <div className="flex flex-col gap-4">
-                        {filters.map(filter => (
-                            <button
-                                key={filter}
-                                onClick={() => handleFilterClick(filter)}
-                                className="text-left bg-transparent border-none cursor-pointer"
-                                style={{
-                                    fontFamily: 'var(--font-sans), sans-serif',
-                                    fontSize: 14,
-                                    fontWeight: activeFilter === filter ? 600 : 400,
-                                    color: activeFilter === filter ? '#1A1A1A' : '#666666',
-                                    transition: 'color 200ms cubic-bezier(0.25, 1, 0.5, 1)',
-                                }}
-                            >
-                                {filter}
-                            </button>
+                {/* ── Sidebar Middle Fill ── */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 20, padding: '24px 0' }}>
+
+                    {/* Today at a Glance mini panel */}
+                    <div style={{
+                        background: 'rgba(255,255,255,0.55)',
+                        border: '1px solid rgba(0,0,0,0.07)',
+                        borderRadius: 14,
+                        padding: '16px 14px',
+                        backdropFilter: 'blur(12px)',
+                    }}>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 14 }}>TODAY AT A GLANCE</p>
+                        {[
+                            { label: 'Study time', value: '2h 47m', color: '#2C3E50' },
+                            { label: 'Phone pickups', value: `${totalPhonePickups}×`, color: '#B07A4A' },
+                            { label: 'Look-aways', value: `${totalLookAways}×`, color: '#C0392B' },
+                            { label: 'Focus score', value: `${avgFocusScore}`, color: '#4A6741' },
+                        ].map(({ label, value, color }) => (
+                            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#888' }}>{label}</span>
+                                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color, letterSpacing: '-0.02em' }}>{value}</span>
+                            </div>
+                        ))}
+                        {/* Focus quality gradient bar */}
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#B0B0B0', fontWeight: 600, letterSpacing: '0.08em' }}>FOCUS QUALITY</span>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#888' }}>{avgFocusScore}%</span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 99, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${avgFocusScore}%`,
+                                    borderRadius: 99,
+                                    background: 'linear-gradient(90deg, #B07A4A, #4A6741)',
+                                    transition: 'width 1s ease',
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Animated breathing focus orb */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+                        <div style={{ position: 'relative', width: 88, height: 88 }}>
+                            {/* Outer pulse rings */}
+                            <div style={{
+                                position: 'absolute', inset: -8,
+                                borderRadius: '50%',
+                                border: '1px solid rgba(215,195,179,0.3)',
+                                animation: 'pulseRing 3s ease-in-out infinite',
+                            }} />
+                            <div style={{
+                                position: 'absolute', inset: -16,
+                                borderRadius: '50%',
+                                border: '1px solid rgba(215,195,179,0.12)',
+                                animation: 'pulseRing 3s ease-in-out infinite 0.5s',
+                            }} />
+                            {/* SVG ring */}
+                            <svg width={88} height={88} style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+                                <circle cx={44} cy={44} r={36} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="5" />
+                                <circle cx={44} cy={44} r={36} fill="none" stroke="url(#sidebarGrad)" strokeWidth="5"
+                                    strokeLinecap="round"
+                                    strokeDasharray={2 * Math.PI * 36}
+                                    strokeDashoffset={2 * Math.PI * 36 * (1 - avgFocusScore / 100)}
+                                    style={{ transition: 'stroke-dashoffset 1.5s ease' }}
+                                />
+                                <defs>
+                                    <linearGradient id="sidebarGrad" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stopColor="#D7C3B3" />
+                                        <stop offset="100%" stopColor="#2C3E50" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            {/* Centre score */}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#1A1A1A', letterSpacing: '-0.03em', lineHeight: 1 }}>{avgFocusScore}</span>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#B0B0B0', fontWeight: 600, letterSpacing: '0.08em', marginTop: 2 }}>SCORE</span>
+                            </div>
+                        </div>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#A8A9AD', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>
+                            Live focus<br />quality index
+                        </p>
+                    </div>
+
+                    {/* Focus tip / quote */}
+                    <div style={{
+                        borderLeft: '2px solid #D7C3B3',
+                        paddingLeft: 12,
+                        margin: '0 0 4px',
+                    }}>
+                        <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: '#555', lineHeight: 1.6, fontStyle: 'italic', margin: 0 }}>
+                            "The secret of getting ahead is getting started."
+                        </p>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#C8B89A', fontWeight: 600, letterSpacing: '0.06em', marginTop: 8 }}>
+                            — MARK TWAIN
+                        </p>
+                    </div>
+
+                    {/* ── 24h Focus Heatmap ── */}
+                    <div style={{ background: 'rgba(255,255,255,0.45)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 14, padding: '14px 12px' }}>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 10 }}>24H FOCUS MAP</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 3, marginBottom: 4 }}>
+                            {[0, 0, 0, 0, 0, 0, 30, 60, 85, 90, 75, 80, 92, 88, 40, 15, 70, 85, 90, 80, 60, 30, 10, 0].map((intensity, i) => (
+                                <div key={i} title={`${i}:00`} style={{
+                                    height: 14, borderRadius: 3,
+                                    background: intensity === 0
+                                        ? 'rgba(0,0,0,0.05)'
+                                        : intensity < 40 ? 'rgba(215,195,179,0.45)'
+                                            : intensity < 70 ? 'rgba(176,122,74,0.55)'
+                                                : 'rgba(44,62,80,0.72)',
+                                }} />
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#C0C0C0' }}>12AM</span>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#C0C0C0' }}>12PM</span>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#C0C0C0' }}>11PM</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                            {['rgba(0,0,0,0.05)', 'rgba(215,195,179,0.45)', 'rgba(176,122,74,0.55)', 'rgba(44,62,80,0.72)'].map((bg, i) => (
+                                <div key={i} style={{ width: 9, height: 9, borderRadius: 2, background: bg }} />
+                            ))}
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#C0C0C0', marginLeft: 3 }}>Low → High</span>
+                        </div>
+                    </div>
+
+                    {/* ── 7-Day Streak ── */}
+                    <div style={{ background: 'rgba(255,255,255,0.45)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 14, padding: '14px 12px', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', margin: 0 }}>STREAK</p>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: '#1A1A1A', letterSpacing: '-0.02em', lineHeight: 1 }}>5</span>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#B0B0B0' }}>days</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
+                                const done = i < 5;
+                                const isToday = i === 4;
+                                return (
+                                    <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <div style={{
+                                            width: 18, height: 18, borderRadius: '50%',
+                                            background: isToday ? 'linear-gradient(135deg, #D7C3B3, #2C3E50)' : done ? 'rgba(44,62,80,0.12)' : 'rgba(0,0,0,0.04)',
+                                            border: isToday ? 'none' : done ? '1.5px solid rgba(44,62,80,0.2)' : '1.5px solid rgba(0,0,0,0.08)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            boxShadow: isToday ? '0 2px 8px rgba(44,62,80,0.25)' : 'none',
+                                            flexShrink: 0,
+                                        }}>
+                                            {done && <div style={{ width: 5, height: 5, borderRadius: '50%', background: isToday ? '#fff' : 'rgba(44,62,80,0.45)' }} />}
+                                        </div>
+                                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, fontWeight: 600, color: done ? '#888' : '#CCC' }}>{day}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#C8B89A', marginTop: 10, marginBottom: 0, fontWeight: 600 }}>🔥 Best streak yet — keep going!</p>
+                    </div>
+
+                    {/* ── Peak Hours ── */}
+                    <div style={{ background: 'rgba(255,255,255,0.45)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 14, padding: '14px 12px' }}>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 12 }}>PEAK HOURS</p>
+                        {[
+                            { time: '9–11 AM', score: 95, label: 'Deep work zone' },
+                            { time: '1–3 PM', score: 88, label: 'Post-lunch surge' },
+                            { time: '7–9 PM', score: 76, label: 'Evening review' },
+                        ].map(({ time, score, label }) => (
+                            <div key={time} style={{ marginBottom: 10 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, color: '#444' }}>{time}</span>
+                                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 12, color: '#2C3E50' }}>{score}</span>
+                                </div>
+                                <div style={{ height: 4, borderRadius: 99, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${score}%`, borderRadius: 99, background: 'linear-gradient(90deg, #D7C3B3, #2C3E50)' }} />
+                                </div>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#B0B0B0' }}>{label}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                </div>
+
+
+                <div style={{ paddingBottom: 8 }}>
+                    <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', marginBottom: 20 }} />
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 8 }}>AURELIUS</p>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#B0B0B0', lineHeight: 1.5 }}>Focus Intelligence<br />Platform</p>
+                    {/* Decorative mini sparkline */}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, marginTop: 14, height: 24 }}>
+                        {[40, 65, 50, 80, 70, 90, 75, 95, 85, 100].map((h, i) => (
+                            <div key={i} style={{ flex: 1, height: `${h}%`, background: i === 9 ? '#D7C3B3' : 'rgba(215,195,179,0.35)', borderRadius: '2px 2px 0 0' }} />
                         ))}
                     </div>
                 </div>
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 ml-[216px] pl-0 pr-[48px] py-[48px] md:py-[64px] max-w-[1440px]">
+            <main className="flex-1 ml-[216px] pl-0 pr-[48px] py-[48px] md:py-[64px] max-w-[1440px]" style={{ position: 'relative', zIndex: 1 }}>
+
                 {/* Top Header Row */}
                 <div className="flex items-end justify-between mb-16 animate-fade-up">
                     <div>
+                        {/* Decorative accent line above title */}
+                        <div style={{ width: 40, height: 2, background: 'linear-gradient(90deg, #D7C3B3, transparent)', borderRadius: 99, marginBottom: 16 }} />
                         <span className="micro-label text-[var(--color-accent-metal)] block mb-4">
                             {activePeriod.toUpperCase()} SUMMARY • {new Date().getFullYear()}
                         </span>
@@ -165,6 +393,13 @@ export default function StatsDashboard() {
                     />
                 </div>
 
+                {/* ── Decorative section divider ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+                    <div style={{ height: 1, flex: 1, background: 'linear-gradient(90deg, rgba(215,195,179,0.5), transparent)' }} />
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#C8B89A' }}>STUDY TRENDS</span>
+                    <div style={{ height: 1, flex: 1, background: 'linear-gradient(270deg, rgba(215,195,179,0.5), transparent)' }} />
+                </div>
+
                 {/* Row 2: Charts (Line 60% / Bar 40%) */}
                 <div className="flex flex-col lg:flex-row gap-8 mb-[64px] animate-fade-up" style={{ animationDelay: '320ms' }}>
                     <LiquidCard padding="p-8" className="flex-grow w-full lg:w-[60%]">
@@ -176,6 +411,13 @@ export default function StatsDashboard() {
                         <h3 className="micro-label mb-8">Study Time By Subject</h3>
                         <SubjectBarChart />
                     </LiquidCard>
+                </div>
+
+                {/* ── Decorative section divider ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+                    <div style={{ height: 1, flex: 1, background: 'linear-gradient(90deg, rgba(44,62,80,0.15), transparent)' }} />
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#A8A9AD' }}>INTERRUPTIONS</span>
+                    <div style={{ height: 1, flex: 1, background: 'linear-gradient(270deg, rgba(44,62,80,0.15), transparent)' }} />
                 </div>
 
                 {/* Row 3: Distraction Panel (Donut 50% / List 50%) */}
@@ -190,33 +432,37 @@ export default function StatsDashboard() {
                     </div>
                 </div>
 
-                {/* ─── Phone Pickups Section ─── */}
+                {/* ── Phone Pickups Section ── */}
                 <div
                     ref={phonePickupsRef}
                     className="mb-[64px] animate-fade-up"
-                    style={{ animationDelay: '460ms', scrollMarginTop: '96px' }}
+                    style={{ animationDelay: '460ms', scrollMarginTop: '96px', position: 'relative' }}
                 >
+                    {/* Background glow behind this section */}
+                    <div aria-hidden style={{
+                        position: 'absolute',
+                        width: 400,
+                        height: 300,
+                        right: 0,
+                        top: -40,
+                        background: 'radial-gradient(ellipse, rgba(176,122,74,0.07) 0%, transparent 70%)',
+                        pointerEvents: 'none',
+                        borderRadius: '50%',
+                    }} />
+
+                    {/* Decorative divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+                        <div style={{ height: 1, flex: 1, background: 'linear-gradient(90deg, rgba(176,122,74,0.4), transparent)' }} />
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#B07A4A' }}>PHONE ACTIVITY</span>
+                        <div style={{ height: 1, flex: 1, background: 'linear-gradient(270deg, rgba(176,122,74,0.4), transparent)' }} />
+                    </div>
+
                     {/* Section header */}
                     <div className="flex items-center gap-4 mb-8">
-                        <div
-                            style={{
-                                width: 3,
-                                height: 28,
-                                background: 'linear-gradient(180deg, #B07A4A, #8B5E3C)',
-                                borderRadius: 99,
-                            }}
-                        />
+                        <div style={{ width: 3, height: 28, background: 'linear-gradient(180deg, #B07A4A, #8B5E3C)', borderRadius: 99 }} />
                         <div>
                             <span className="micro-label" style={{ color: '#B07A4A' }}>DISTRACTION ANALYSIS</span>
-                            <h2
-                                style={{
-                                    fontFamily: 'var(--font-serif), serif',
-                                    fontSize: 26,
-                                    color: '#1A1A1A',
-                                    letterSpacing: '-0.015em',
-                                    margin: '2px 0 0',
-                                }}
-                            >
+                            <h2 style={{ fontFamily: 'var(--font-serif), serif', fontSize: 26, color: '#1A1A1A', letterSpacing: '-0.015em', margin: '2px 0 0' }}>
                                 Phone Pickups
                             </h2>
                         </div>
@@ -224,30 +470,19 @@ export default function StatsDashboard() {
 
                     {/* KPI mini-cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        {/* Total pickups */}
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#B07A4A' }}>TOTAL PICKUPS</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>
-                                {totalPhonePickups}
-                            </p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{totalPhonePickups}</p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>times today</p>
                         </LiquidCard>
-
-                        {/* Avg unattended */}
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#4A6741' }}>AVG. FOCUS WINDOW</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>
-                                {avgUnattendedMinutes}<span style={{ fontSize: 18, color: '#888' }}> min</span>
-                            </p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{avgUnattendedMinutes}<span style={{ fontSize: 18, color: '#888' }}> min</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>avg. between pickups</p>
                         </LiquidCard>
-
-                        {/* Longest without phone */}
                         <LiquidCard padding="p-6">
                             <p className="micro-label mb-2" style={{ color: '#2C3E50' }}>BEST STREAK</p>
-                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>
-                                {longestUnattended}<span style={{ fontSize: 18, color: '#888' }}> min</span>
-                            </p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{longestUnattended}<span style={{ fontSize: 18, color: '#888' }}> min</span></p>
                             <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>longest phone-free window</p>
                         </LiquidCard>
                     </div>
@@ -261,17 +496,7 @@ export default function StatsDashboard() {
                                     Bars = how long you used<br />the phone · Line = focus window before each pickup
                                 </p>
                             </div>
-                            <div style={{
-                                background: 'rgba(176,122,74,0.08)',
-                                border: '1px solid rgba(176,122,74,0.2)',
-                                borderRadius: 8,
-                                padding: '6px 14px',
-                                fontSize: 11,
-                                color: '#B07A4A',
-                                fontFamily: 'var(--font-sans)',
-                                fontWeight: 600,
-                                letterSpacing: '0.05em'
-                            }}>
+                            <div style={{ background: 'rgba(176,122,74,0.08)', border: '1px solid rgba(176,122,74,0.2)', borderRadius: 8, padding: '6px 14px', fontSize: 11, color: '#B07A4A', fontFamily: 'var(--font-sans)', fontWeight: 600, letterSpacing: '0.05em' }}>
                                 TODAY
                             </div>
                         </div>
@@ -280,27 +505,13 @@ export default function StatsDashboard() {
                         {/* Event timeline list */}
                         <div style={{ marginTop: 28, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
                             <p className="micro-label mb-4">ALL PICKUP EVENTS</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
                                 {[...require('../../lib/data').phonePickupEvents].map((e: any, i: number) => (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 16,
-                                            padding: '8px 12px',
-                                            borderRadius: 8,
-                                            background: i % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent',
-                                        }}
-                                    >
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 12px', borderRadius: 8, background: i % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A1A', width: 44, flexShrink: 0 }}>{e.time}</span>
-                                        <span style={{ fontSize: 12, color: '#B07A4A', flexShrink: 0 }}>
-                                            📱 picked up for {e.durationSeconds}s
-                                        </span>
+                                        <span style={{ fontSize: 12, color: '#B07A4A', flexShrink: 0 }}>📱 picked up for {e.durationSeconds}s</span>
                                         {e.minutesUnattended > 0 && (
-                                            <span style={{ fontSize: 11, color: '#888' }}>
-                                                · {e.minutesUnattended} min phone-free before this
-                                            </span>
+                                            <span style={{ fontSize: 11, color: '#888' }}>· {e.minutesUnattended} min phone-free before this</span>
                                         )}
                                     </div>
                                 ))}
@@ -309,12 +520,31 @@ export default function StatsDashboard() {
                     </LiquidCard>
                 </div>
 
-                {/* ─── Face Detection Section ─── */}
+                {/* ── Face Detection Section ── */}
                 <div
                     ref={faceDetectionRef}
                     className="mb-[64px] animate-fade-up"
-                    style={{ animationDelay: '500ms', scrollMarginTop: '96px' }}
+                    style={{ animationDelay: '500ms', scrollMarginTop: '96px', position: 'relative' }}
                 >
+                    {/* Background glow */}
+                    <div aria-hidden style={{
+                        position: 'absolute',
+                        width: 400,
+                        height: 300,
+                        left: 0,
+                        top: -40,
+                        background: 'radial-gradient(ellipse, rgba(44,62,80,0.06) 0%, transparent 70%)',
+                        pointerEvents: 'none',
+                        borderRadius: '50%',
+                    }} />
+
+                    {/* Decorative divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+                        <div style={{ height: 1, flex: 1, background: 'linear-gradient(90deg, rgba(44,62,80,0.25), transparent)' }} />
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#2C3E50' }}>GAZE ACTIVITY</span>
+                        <div style={{ height: 1, flex: 1, background: 'linear-gradient(270deg, rgba(44,62,80,0.25), transparent)' }} />
+                    </div>
+
                     <div className="flex items-center gap-4 mb-8">
                         <div style={{ width: 3, height: 28, background: 'linear-gradient(180deg, #2C3E50, #1a252f)', borderRadius: 99 }} />
                         <div>
@@ -361,23 +591,21 @@ export default function StatsDashboard() {
                         <FaceDetectionChart />
 
                         <div style={{ display: 'flex', gap: 20, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4A6741' }} />
-                                <span style={{ fontSize: 11, color: '#888' }}>Low (&lt;20s)</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#B07A4A' }} />
-                                <span style={{ fontSize: 11, color: '#888' }}>Medium (20–60s)</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#C0392B' }} />
-                                <span style={{ fontSize: 11, color: '#888' }}>High (&gt;60s)</span>
-                            </div>
+                            {[
+                                { color: '#4A6741', label: 'Low (<20s)' },
+                                { color: '#B07A4A', label: 'Medium (20–60s)' },
+                                { color: '#C0392B', label: 'High (>60s)' },
+                            ].map(({ color, label }) => (
+                                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
+                                    <span style={{ fontSize: 11, color: '#888' }}>{label}</span>
+                                </div>
+                            ))}
                         </div>
 
                         <div style={{ marginTop: 20, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
                             <p className="micro-label mb-4">ALL LOOK-AWAY EVENTS</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
                                 {[...require('../../lib/data').faceAwayEvents].map((e: any, i: number) => {
                                     const severity = e.durationSeconds > 60 ? 'High' : e.durationSeconds > 20 ? 'Medium' : 'Low';
                                     const sColor = e.durationSeconds > 60 ? '#C0392B' : e.durationSeconds > 20 ? '#B07A4A' : '#4A6741';
@@ -392,6 +620,13 @@ export default function StatsDashboard() {
                             </div>
                         </div>
                     </LiquidCard>
+                </div>
+
+                {/* ── Decorative divider before session log ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+                    <div style={{ height: 1, flex: 1, background: 'linear-gradient(90deg, rgba(44,62,80,0.12), transparent)' }} />
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#A8A9AD' }}>SESSION LOG</span>
+                    <div style={{ height: 1, flex: 1, background: 'linear-gradient(270deg, rgba(44,62,80,0.12), transparent)' }} />
                 </div>
 
                 {/* Row 4: Session Log Table */}

@@ -275,3 +275,18 @@ body {
 .animate-pulse-glow {
   animation: pulseGlow 6s ease-in-out infinite;
 }
+
+/* Sidebar orb pulse rings */
+@keyframes pulseRing {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.12;
+    transform: scale(1.1);
+  }
+}

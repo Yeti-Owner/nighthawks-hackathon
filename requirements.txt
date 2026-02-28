@@ -4,4 +4,3 @@ mediapipe
 fastapi
 uvicorn
 Pillow
-opencv-python

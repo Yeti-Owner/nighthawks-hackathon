@@ -82,6 +82,13 @@ CAMERA_INDEX = 0             # 0 = default webcam. Change for external cameras.
 CAMERA_WIDTH = 640           # Capture width in pixels
 CAMERA_HEIGHT = 480          # Capture height in pixels
 
+try:
+    with open(Path(__file__).parent.resolve().parent / "cam_select" / "cameras.txt", "r") as f:
+        _cameras = json.load(f)
+        CAMERA_INDEX = _cameras.get("primary", {}).get("id", CAMERA_INDEX)
+except Exception:
+    pass
+
 # ──────────────────────────────────────────────────────────────────────────────
 # MEDIAPIPE SETTINGS
 # ──────────────────────────────────────────────────────────────────────────────
@@ -94,7 +101,7 @@ MIN_TRACKING_CONFIDENCE = 0.5         # 0.0–1.0, higher = more stable tracking
 # ──────────────────────────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).parent.resolve()
 MODEL_PATH = str(SCRIPT_DIR / "face_landmarker.task")
-LOG_PATH = str(SCRIPT_DIR / "session_log.csv")
+LOG_PATH = str(SCRIPT_DIR.parent / "logs" / "session_log.csv")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # TIMEZONE
@@ -316,6 +323,7 @@ class LogWriter:
     def _ensure_header(self) -> None:
         """Write the header block if the file doesn't exist yet."""
         if not os.path.exists(self.path):
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
             with open(self.path, "w", newline="") as f:
                 f.write(LOG_HEADER)
 

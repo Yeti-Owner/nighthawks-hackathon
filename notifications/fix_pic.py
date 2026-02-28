@@ -147,17 +147,37 @@ def process_image(input_path: str, output_path: str = None, crop: bool = True):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Optimize a phone-screen JPG for AI text/notification parsing."
+        description="Optimize all phone-screen images in a folder for AI text/notification parsing."
     )
-    parser.add_argument("input", help="Input JPG (or any image) file")
-    parser.add_argument("output", nargs="?", help="Output PNG file (default: <input>_optimized.png)")
-    parser.add_argument(
-        "--no-crop", action="store_true",
-        help="Skip auto-crop; process the full frame"
-    )
-
+    parser.add_argument("folder", help="Folder containing captured images to process")
     args = parser.parse_args()
-    process_image(args.input, args.output, crop=not args.no_crop)
+
+    input_folder = Path(args.folder).resolve()
+    if not input_folder.is_dir():
+        print(f"[ERROR] Not a valid folder: {input_folder}")
+        sys.exit(1)
+
+    # Output folder: logs/captures/ as a sibling to the directory this script lives in
+    output_folder = Path(__file__).resolve().parent.parent / "logs" / "captures"
+    output_folder.mkdir(parents=True, exist_ok=True)
+    print(f"Output folder: {output_folder}")
+
+    image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+    images = [f for f in input_folder.iterdir() if f.suffix.lower() in image_extensions]
+
+    if not images:
+        print(f"[INFO] No image files found in {input_folder}")
+        return
+
+    print(f"Found {len(images)} image(s) to process.")
+    for img_path in sorted(images):
+        output_path = str(output_folder / (img_path.stem + ".png"))
+        try:
+            process_image(str(img_path), output_path, crop=True)
+        except Exception as e:
+            print(f"  [ERROR] Failed to process {img_path.name}: {e}")
+
+    print(f"\n[DONE] Processed {len(images)} image(s) -> {output_folder}")
 
 
 if __name__ == "__main__":

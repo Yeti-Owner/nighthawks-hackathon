@@ -42,10 +42,10 @@ from fastapi.middleware.cors import CORSMiddleware
 # NOTE: Laptop cameras sit BELOW eye level, so pitch naturally reads ~10-20°.
 #       Keep PITCH_DOWN generous to avoid false positives.
 # ──────────────────────────────────────────────────────────────────────────────
-YAW_THRESHOLD = 25          # Max degrees head can turn left/right (horizontal)
-PITCH_UP_THRESHOLD = 15    # Max degrees head can tilt up (looking up = negative pitch)
-PITCH_DOWN_THRESHOLD = 10  # Max degrees head can tilt down (looking down = positive pitch)
-ROLL_THRESHOLD = 30         # Max degrees head can tilt sideways
+YAW_THRESHOLD = 37.0          # Max degrees head can turn left/right (horizontal)
+PITCH_UP_THRESHOLD = 9.0    # Max degrees head can tilt up (looking up = negative pitch)
+PITCH_DOWN_THRESHOLD = 7.0  # Max degrees head can tilt down (looking down = positive pitch)
+ROLL_THRESHOLD = 33.7         # Max degrees head can tilt sideways
 
 # ──────────────────────────────────────────────────────────────────────────────
 # IRIS GAZE THRESHOLDS (ratio 0.0–1.0)

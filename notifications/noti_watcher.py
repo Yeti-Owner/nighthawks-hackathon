@@ -26,15 +26,17 @@ import numpy as np
 import os
 import time
 import threading
+import subprocess
 from collections import deque
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # ─────────────────────────────────────────────────────────────────
 #  CONFIGURATION  ← tweak these
 # ─────────────────────────────────────────────────────────────────
 
 CAPTURE_INTERVAL       = 0.5    # seconds between captures (0.5 = twice/sec)
-OUTPUT_FOLDER          = os.path.join(os.path.dirname(__file__), "..", "logs", "captures")
+OUTPUT_FOLDER          = os.path.join(os.path.dirname(__file__), "captures")
 CAMERA_INDEX           = 0      # 0 = default webcam
 
 try:
@@ -106,7 +108,7 @@ def is_significant(pixel_pct, brightness_delta):
 
 
 def save_frame(frame, frame_mean):
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    ts = datetime.now(ZoneInfo("America/New_York")).strftime("%H_%M_%S")
     state = "OFF" if frame_mean < DARK_BRIGHTNESS else "ON"
     filename = f"capture_{ts}_{state}.jpg"
     filepath = os.path.join(OUTPUT_FOLDER, filename)
@@ -218,6 +220,8 @@ def run():
         kept = saved_count - deleted_count
         print(f"\n[DONE] frames captured={frame_count}  saved={saved_count}  "
               f"deleted(dark)={deleted_count}  kept={kept}")
+        fix_pic = os.path.join(os.path.dirname(__file__), "fix_pic.py")
+        subprocess.call(["python", fix_pic, os.path.abspath(OUTPUT_FOLDER)])
 
 
 if __name__ == "__main__":

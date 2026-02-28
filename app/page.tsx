@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import LiquidCard from '../components/LiquidCard';
+import PomodoroTimer from '../components/PomodoroTimer';
 import { Activity, Clock, BarChart3 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -150,18 +153,8 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div className="md:w-1/2 relative h-[400px] w-full">
-            {/* Fading bottom edge mock */}
-            <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to bottom, transparent 40%, #F9F8F5 100%)' }} />
-            <div className="absolute top-0 right-[-10%] w-[120%] pointer-events-none opacity-50">
-              <LiquidCard padding="p-8">
-                <div className="flex gap-4 mb-4">
-                  <div className="flex-1 h-24 bg-[rgba(44,62,80,0.05)] rounded opacity-50" />
-                  <div className="flex-1 h-24 bg-[rgba(44,62,80,0.05)] rounded opacity-50" />
-                </div>
-                <div className="h-64 mt-4 bg-[rgba(44,62,80,0.05)] rounded opacity-50 w-full" />
-              </LiquidCard>
-            </div>
+          <div className="md:w-1/2 flex justify-center items-center px-4">
+            <PomodoroTimer />
           </div>
         </div>
       </section>

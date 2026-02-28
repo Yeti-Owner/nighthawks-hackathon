@@ -108,7 +108,7 @@ export default function StatsDashboard() {
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 ml-[240px] p-[48px] md:p-[64px] max-w-[1440px]">
+            <main className="flex-1 ml-[216px] pl-0 pr-[48px] py-[48px] md:py-[64px] max-w-[1440px]">
                 {/* Top Header Row */}
                 <div className="flex items-end justify-between mb-16 animate-fade-up">
                     <div>

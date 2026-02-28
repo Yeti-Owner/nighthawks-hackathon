@@ -33,12 +33,6 @@ import mediapipe as mp
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                        TUNABLE CONFIGURATION                               ║
-# ║                                                                            ║
-# ║  All thresholds and settings are collected here for easy tuning.           ║
-# ║  Adjust these values to change detection sensitivity and behavior.         ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
 
 # ──────────────────────────────────────────────────────────────────────────────
 # HEAD POSE THRESHOLDS (degrees)

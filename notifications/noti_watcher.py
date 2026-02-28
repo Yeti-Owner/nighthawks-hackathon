@@ -37,6 +37,14 @@ CAPTURE_INTERVAL       = 0.5    # seconds between captures (0.5 = twice/sec)
 OUTPUT_FOLDER          = "captures"
 CAMERA_INDEX           = 0      # 0 = default webcam
 
+try:
+    import json
+    with open(os.path.join(os.path.dirname(__file__), "..", "cam_select", "cameras.txt"), "r") as f:
+        _cameras = json.load(f)
+        CAMERA_INDEX = _cameras.get("secondary", {}).get("id", CAMERA_INDEX)
+except Exception:
+    pass
+
 # --- Rolling baseline buffer ---
 BUFFER_SIZE            = 10     # frames kept in rolling average (also the warm-up period)
 

@@ -82,6 +82,13 @@ CAMERA_INDEX = 0             # 0 = default webcam. Change for external cameras.
 CAMERA_WIDTH = 640           # Capture width in pixels
 CAMERA_HEIGHT = 480          # Capture height in pixels
 
+try:
+    with open(Path(__file__).parent.resolve().parent / "cam_select" / "cameras.txt", "r") as f:
+        _cameras = json.load(f)
+        CAMERA_INDEX = _cameras.get("primary", {}).get("id", CAMERA_INDEX)
+except Exception:
+    pass
+
 # ──────────────────────────────────────────────────────────────────────────────
 # MEDIAPIPE SETTINGS
 # ──────────────────────────────────────────────────────────────────────────────

@@ -41,6 +41,15 @@ TZ = ZoneInfo("America/New_York")
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
+
+try:
+    import json
+    with open(Path(__file__).parent.resolve().parent / "cam_select" / "cameras.txt", "r") as f:
+        _cameras = json.load(f)
+        CAMERA_INDEX = _cameras.get("primary", {}).get("id", CAMERA_INDEX)
+except Exception:
+    pass
+
 FRAME_DELAY_MS = 33
 
 # Margin (degrees) added beyond the max observed angle at each edge

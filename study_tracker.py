@@ -19,6 +19,7 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"          # Hide TF info/warning logs
 os.environ["GLOG_minloglevel"] = "3"               # Hide MediaPipe C++ warnings
 
+import contextlib
 import csv
 import sys
 import time
@@ -42,8 +43,8 @@ from fastapi.middleware.cors import CORSMiddleware
 #       Keep PITCH_DOWN generous to avoid false positives.
 # ──────────────────────────────────────────────────────────────────────────────
 YAW_THRESHOLD = 25          # Max degrees head can turn left/right (horizontal)
-PITCH_UP_THRESHOLD = 20    # Max degrees head can tilt up (looking up = negative pitch)
-PITCH_DOWN_THRESHOLD = 25  # Max degrees head can tilt down (looking down = positive pitch)
+PITCH_UP_THRESHOLD = 15    # Max degrees head can tilt up (looking up = negative pitch)
+PITCH_DOWN_THRESHOLD = 10  # Max degrees head can tilt down (looking down = positive pitch)
 ROLL_THRESHOLD = 30         # Max degrees head can tilt sideways
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ IRIS_RIGHT_THRESHOLD = 0.80 # Above this → looking right
 # ──────────────────────────────────────────────────────────────────────────────
 # TIMING SETTINGS
 # ──────────────────────────────────────────────────────────────────────────────
-DEBOUNCE_SECONDS = 0.5       # Seconds a state must hold before logging a transition
+DEBOUNCE_SECONDS = 0.2       # Seconds a state must hold before logging a transition
 FRAME_DELAY_MS = 33          # Min ms between frames (~30 fps). Increase to save CPU.
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -123,6 +124,30 @@ LOG_HEADER = (
 def _est_now() -> str:
     """Return current time as HH:MM:SS in America/New_York."""
     return datetime.now(TZ).strftime("%H:%M:%S")
+
+
+@contextlib.contextmanager
+def suppress_cpp_output():
+    """Suppress C++ stdout/stderr by temporarily redirecting file descriptors."""
+    try:
+        fd_out = sys.stdout.fileno()
+        fd_err = sys.stderr.fileno()
+    except Exception:
+        yield
+        return
+
+    with open(os.devnull, 'w') as devnull:
+        old_stdout = os.dup(fd_out)
+        old_stderr = os.dup(fd_err)
+        os.dup2(devnull.fileno(), fd_out)
+        os.dup2(devnull.fileno(), fd_err)
+        try:
+            yield
+        finally:
+            os.dup2(old_stdout, fd_out)
+            os.dup2(old_stderr, fd_err)
+            os.close(old_stdout)
+            os.close(old_stderr)
 
 
 # ── 3D reference model points for solvePnP (canonical face) ─────────────────
@@ -369,7 +394,8 @@ class GazeTracker:
             return
 
         # Create landmarker ONCE, reuse across all frames
-        landmarker = FaceLandmarker.create_from_options(options)
+        with suppress_cpp_output():
+            landmarker = FaceLandmarker.create_from_options(options)
         frame_ts = 0
         frame_interval = FRAME_DELAY_MS / 1000.0
         last_frame_time = time.monotonic()

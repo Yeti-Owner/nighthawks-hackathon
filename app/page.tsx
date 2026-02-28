@@ -33,36 +33,31 @@ export default function LandingPage() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const handleEndSession = async () => {
-    // 1. Stop trackers
-    try {
-      await fetch('http://localhost:8000/stop/study_tracker', { method: 'POST' });
-      await fetch('http://localhost:8000/stop/noti_watcher', { method: 'POST' });
-    } catch (err) {
-      console.error('Failed to stop scripts', err);
-    }
-    setIsSessionActive(false);
-
-    // 2. Sync data to/from Vultr
     setIsSyncing(true);
     setSyncResult(null);
+    setIsSessionActive(false);
+
     try {
-      // Send CSVs
-      await fetch('http://localhost:8000/sync/send', { method: 'POST' });
-      // Poll until send completes (max ~30s)
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-        const res = await fetch('http://localhost:8000/sync/send/status');
+      // Kick off the end-session pipeline (stops scripts + fix + parse + send + receive)
+      await fetch('http://localhost:8000/pipeline/end', { method: 'POST' });
+
+      // Poll until pipeline completes (max ~4 min)
+      for (let i = 0; i < 120; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        const res = await fetch('http://localhost:8000/pipeline/end/status');
         const data = await res.json();
-        if (data.status !== 'running') break;
+        if (data.status !== 'running') {
+          setSyncResult(
+            data.status === 'completed'
+              ? 'Session data synced successfully!'
+              : `Pipeline finished with issues: ${data.error || 'unknown'}`
+          );
+          break;
+        }
       }
-      // Receive data from server
-      const recvRes = await fetch('http://localhost:8000/sync/receive', { method: 'POST' });
-      const recvData = await recvRes.json();
-      const ok = recvData.status === 'ok';
-      setSyncResult(ok ? 'Data synced successfully!' : 'Sync completed with some issues.');
     } catch (err) {
-      console.error('Sync failed', err);
-      setSyncResult('Sync failed — server may be offline.');
+      console.error('Pipeline failed', err);
+      setSyncResult('Pipeline failed — is the manager running?');
     } finally {
       setIsSyncing(false);
       setTimeout(() => setSyncResult(null), 5000);

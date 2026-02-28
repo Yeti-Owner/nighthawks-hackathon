@@ -1,7 +1,0 @@
-timestamp,filename,has_notification,urgency,source,sender,summary,error
-3_optimized,3_optimized.png,False,,,,,
-4_optimized,4_optimized.png,True,Medium,iMessage,Leah,Leah is upset because she stuttered a lot while recording a video for an assignment.,
-1,1.png,True,Medium,Snapchat,Leah,Leah sent you a Snap.,
-2,2.png,False,,,,,
-4,4.png,True,Medium,Messages,Leah,"Leah recorded her video for the assignment and was stuttering badly, feeling like crying.",
-8,8.png,True,Low,Discord,MusiCat,MusiCat is sending something.,

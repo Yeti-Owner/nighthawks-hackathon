@@ -71,6 +71,7 @@ export default function SessionSetupModal({ isOpen, onClose }: { isOpen: boolean
     const handleStartTracking = async () => {
         await startScript('study_tracker');
         await startScript('noti_watcher');
+        await startScript('arduino_reader');
         setStep('active');
         setTimeout(() => {
             onClose();

@@ -154,7 +154,36 @@ def enqueue_existing():
             image_queue.put(p)
 
 
+def batch_mode():
+    """Process all existing PNGs in WATCH_DIR then exit."""
+    if not API_KEY:
+        raise ValueError("GEMINI_API_KEY not set in .env")
+
+    WATCH_DIR.mkdir(parents=True, exist_ok=True)
+    init_csv()
+
+    existing = sorted(WATCH_DIR.glob("*.png"))
+    if not existing:
+        log.info("Batch mode: no PNG files to process.")
+        return
+
+    log.info(f"Batch mode: processing {len(existing)} PNG(s)...")
+    for p in existing:
+        process_image(p)
+    log.info("Batch mode: done.")
+
+
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch", action="store_true",
+                        help="Process existing PNGs and exit (no file watching)")
+    args = parser.parse_args()
+
+    if args.batch:
+        batch_mode()
+        return
+
     if not API_KEY:
         raise ValueError("GEMINI_API_KEY not set in .env")
 

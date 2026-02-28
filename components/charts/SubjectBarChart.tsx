@@ -10,7 +10,7 @@ import {
     ResponsiveContainer,
     Cell
 } from 'recharts';
-import { subjectHours } from '../../lib/data';
+import { useStatsData } from '../../lib/DataContext';
 
 interface CustomTooltipProps {
     active?: boolean;
@@ -57,6 +57,9 @@ const QUIET_LUXURY_COLORS = [
 ];
 
 export default function SubjectBarChart() {
+    const { data } = useStatsData();
+    if (!data) return null;
+
     return (
         <div style={{ width: '100%', height: 320 }}>
             {/* 
@@ -67,7 +70,7 @@ export default function SubjectBarChart() {
       */}
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                    data={subjectHours}
+                    data={data.subjectHours}
                     layout="vertical"
                     margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
                 >
@@ -102,7 +105,7 @@ export default function SubjectBarChart() {
                         radius={[0, 4, 4, 0]} // Right-side radius only 
                         barSize={24}
                     >
-                        {subjectHours.map((entry, index) => (
+                        {data.subjectHours.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={QUIET_LUXURY_COLORS[index % QUIET_LUXURY_COLORS.length]} />
                         ))}
                     </Bar>

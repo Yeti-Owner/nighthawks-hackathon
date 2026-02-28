@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "id": 1,
+    "iteration": 1,
+    "time_held": 4.9
+  },
+  {
+    "id": 2,
+    "iteration": 2,
+    "time_held": 3.0
+  },
+  {
+    "id": 3,
+    "iteration": 3,
+    "time_held": 3.05
+  }
+]

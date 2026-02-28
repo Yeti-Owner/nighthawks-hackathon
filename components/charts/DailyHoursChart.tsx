@@ -11,7 +11,7 @@ import {
     Area,
     ComposedChart
 } from 'recharts';
-import { dailyHours } from '../../lib/data';
+import { useStatsData } from '../../lib/DataContext';
 
 interface CustomTooltipProps {
     active?: boolean;
@@ -52,12 +52,15 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 };
 
 export default function DailyHoursChart() {
+    const { data } = useStatsData();
+    if (!data) return null;
+
     return (
         <div style={{ width: '100%', height: 320 }}>
             {/* We use ComposedChart to get both the filled Area and the crisp Line on top easily */}
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
-                    data={dailyHours}
+                    data={data.dailyHours}
                     margin={{ top: 16, right: 16, left: -16, bottom: 0 }}
                 >
                     <CartesianGrid

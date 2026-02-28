@@ -1,7 +1,11 @@
-import { topApps, distractionSources } from '../lib/data';
+import { useStatsData } from '../lib/DataContext';
 import LiquidCard from './LiquidCard';
 
 export default function TopAppsList() {
+    const { data } = useStatsData();
+    if (!data) return null;
+
+    const { topApps } = data;
     const maxCount = Math.max(...topApps.map(app => app.count));
 
     // Try to match app colors based on standard brand colors or fall back to luxury palette

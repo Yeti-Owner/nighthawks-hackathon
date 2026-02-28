@@ -22,3 +22,14 @@ export interface DailyHour {
   date: string;
   hours: number;
 }
+
+export interface PhonePickupEvent {
+  time: string;
+  minutesUnattended: number;
+  durationSeconds: number;
+}
+
+export interface FaceAwayEvent {
+  time: string;
+  durationSeconds: number;
+}

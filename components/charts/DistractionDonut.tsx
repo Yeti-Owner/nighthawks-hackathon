@@ -1,12 +1,12 @@
 'use client';
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { distractionSources, totalInterruptions } from '../../lib/data';
+import { useStatsData } from '../../lib/DataContext';
 
-function CustomTooltip({ active, payload }: any) {
+function CustomTooltip({ active, payload, totalInterruptions }: any) {
     if (!active || !payload?.length) return null;
     const { name, value, color } = payload[0].payload;
-    const pct = Math.round((value / totalInterruptions) * 100);
+    const pct = totalInterruptions > 0 ? Math.round((value / totalInterruptions) * 100) : 0;
     return (
         <div style={{
             background: 'rgba(255,255,255,0.95)',
@@ -38,6 +38,11 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 export default function DistractionDonut() {
+    const { data } = useStatsData();
+    if (!data) return null;
+
+    const { distractionSources, totalInterruptions } = data;
+
     return (
         <div className="flex flex-col h-full w-full">
             <div style={{ position: 'relative', width: '100%', height: 320 }}>
@@ -62,7 +67,7 @@ export default function DistractionDonut() {
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                         <Tooltip
-                            content={<CustomTooltip />}
+                            content={<CustomTooltip totalInterruptions={totalInterruptions} />}
                             cursor={false}
                         />
                         <Pie
@@ -92,7 +97,7 @@ export default function DistractionDonut() {
             {/* Custom Legend */}
             <div className="flex flex-wrap justify-center mt-8" style={{ gap: 24 }}>
                 {distractionSources.map((source, index) => {
-                    const percentage = Math.round((source.value / totalInterruptions) * 100);
+                    const percentage = totalInterruptions > 0 ? Math.round((source.value / totalInterruptions) * 100) : 0;
                     return (
                         <div key={index} className="flex items-center gap-2">
                             <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: source.color }} />

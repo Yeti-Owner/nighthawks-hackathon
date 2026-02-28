@@ -1,4 +1,4 @@
-import { studySessions } from '../lib/data';
+import { useStatsData } from '../lib/DataContext';
 
 function getScorePillClass(score: number) {
     if (score >= 80) return 'score-green';
@@ -16,6 +16,9 @@ function formatDate(dateStr: string) {
 }
 
 export default function SessionTable() {
+    const { data } = useStatsData();
+    if (!data) return null;
+
     return (
         <div className="w-full">
             <div className="overflow-x-auto">
@@ -43,7 +46,7 @@ export default function SessionTable() {
                     </thead>
                     <tbody>
                         {// Limit to 8 rows as requested for sample display
-                            studySessions.slice(0, 8).map((session, index) => (
+                            data.studySessions.slice(0, 8).map((session, index) => (
                                 <tr
                                     key={index}
                                     className="group transition-colors duration-200"

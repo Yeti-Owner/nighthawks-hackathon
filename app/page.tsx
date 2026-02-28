@@ -167,7 +167,7 @@ export default function LandingPage() {
               maxWidth: 900,
             }}
           >
-            The discipline to study.<br />The data to improve.
+            Welcome to Aurelius
           </h1>
 
           <p
@@ -230,36 +230,19 @@ export default function LandingPage() {
         {/* Floating Session Card Visual */}
         <div className="absolute right-[10%] top-[35%] animate-float hidden lg:block" style={{ width: 400, zIndex: 1 }}>
           <LiquidCard padding="p-8">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--color-positive)' }} />
-                <span className="micro-label">LIVE SESSION</span>
-              </div>
-              <span className="micro-label">PHYSICS</span>
-            </div>
-
-            <div
+            <h2
               style={{
                 fontFamily: 'var(--font-serif), serif',
-                fontSize: 64,
+                fontSize: 40,
                 letterSpacing: '-0.03em',
-                lineHeight: 1,
+                lineHeight: 1.1,
                 color: 'var(--color-text-primary)',
-                marginBottom: 8,
+                margin: '16px 0',
               }}
             >
-              02:47:13
-            </div>
-
-            <p className="micro-label mb-8" style={{ color: 'var(--color-positive)' }}>
-              CURRENT FOCUS SCORE: 92
-            </p>
-
-            <div className="h-[48px] w-full flex items-end gap-1 opacity-50">
-              {[40, 60, 45, 80, 70, 90, 85, 95, 100].map((h, i) => (
-                <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, backgroundColor: 'var(--color-accent-trust)' }} />
-              ))}
-            </div>
+              The discipline to study.<br />
+              The data to improve.
+            </h2>
           </LiquidCard>
         </div>
       </section>

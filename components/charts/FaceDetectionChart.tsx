@@ -10,17 +10,7 @@ import {
     ReferenceLine,
     ResponsiveContainer,
 } from 'recharts';
-import { faceAwayEvents } from '../../lib/data';
-
-const data = faceAwayEvents.map((e) => ({
-    time: e.time,
-    'Look-Away (s)': e.durationSeconds,
-}));
-
-// avg line value
-const avg = Math.round(
-    faceAwayEvents.reduce((s, e) => s + e.durationSeconds, 0) / faceAwayEvents.length
-);
+import { useStatsData } from '../../lib/DataContext';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !payload.length) return null;
@@ -52,9 +42,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function FaceDetectionChart() {
+    const { data: statsData } = useStatsData();
+    if (!statsData) return null;
+
+    const chartData = statsData.faceAwayEvents.map((e) => ({
+        time: e.time,
+        'Look-Away (s)': e.durationSeconds,
+    }));
+
+    const avg = statsData.faceAwayEvents.length > 0 ? Math.round(
+        statsData.faceAwayEvents.reduce((s, e) => s + e.durationSeconds, 0) / statsData.faceAwayEvents.length
+    ) : 0;
+
     return (
         <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                 <defs>
                     <linearGradient id="faceGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#2C3E50" stopOpacity={0.18} />

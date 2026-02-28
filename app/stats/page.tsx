@@ -11,24 +11,13 @@ import TopAppsList from '../../components/TopAppsList';
 import SessionTable from '../../components/SessionTable';
 import PhonePickupsChart from '../../components/charts/PhonePickupsChart';
 import FaceDetectionChart from '../../components/charts/FaceDetectionChart';
-import {
-    totalStudyMinutes,
-    totalSessions,
-    avgFocusScore,
-    totalInterruptions,
-    totalPhonePickups,
-    avgUnattendedMinutes,
-    longestUnattended,
-    totalLookAways,
-    avgLookAwaySeconds,
-    longestLookAway,
-    totalSecondsDistracted,
-} from '../../lib/data';
+import { DataProvider, useStatsData } from '../../lib/DataContext';
 
 const periods = ['Today', 'All Time'];
 const filters = ['All Filters', 'Phone Pickups', 'Face Detection'];
 
-function StatsDashboard() {
+function StatsDashboardContent() {
+    const { data, loading, error } = useStatsData();
     const [activePeriod, setActivePeriod] = useState('Today');
     const [activeFilter, setActiveFilter] = useState('All Filters');
 
@@ -47,6 +36,38 @@ function StatsDashboard() {
             }, 50);
         }
     }
+
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center pt-[64px]" style={{ background: '#F9F8F5' }}>
+                <div className="flex flex-col items-center gap-4">
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid rgba(44,62,80,0.1)', borderTopColor: '#2C3E50', animation: 'spin 1s linear infinite' }} />
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#888' }}>Loading your intelligence report...</span>
+                </div>
+            </div>
+        );
+    }
+    if (error || !data) {
+        return (
+            <div className="flex min-h-screen items-center justify-center pt-[64px]" style={{ background: '#F9F8F5' }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#C0392B' }}>Failed to load insights. {error}</span>
+            </div>
+        );
+    }
+
+    const {
+        totalStudyMinutes,
+        totalSessions,
+        avgFocusScore,
+        totalInterruptions,
+        totalPhonePickups,
+        avgUnattendedMinutes,
+        longestUnattended,
+        totalLookAways,
+        avgLookAwaySeconds,
+        longestLookAway,
+        totalSecondsDistracted,
+    } = data;
 
     return (
         <div className="flex min-h-screen pt-[64px]" style={{ background: '#F9F8F5', position: 'relative' }}>
@@ -565,7 +586,7 @@ function StatsDashboard() {
                         <div style={{ marginTop: 28, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
                             <p className="micro-label mb-4">ALL PICKUP EVENTS</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
-                                {[...require('../../lib/data').phonePickupEvents].map((e: any, i: number) => (
+                                {[...data.phonePickupEvents].map((e: any, i: number) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 12px', borderRadius: 8, background: i % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A1A', width: 44, flexShrink: 0 }}>{e.time}</span>
                                         <span style={{ fontSize: 12, color: '#B07A4A', flexShrink: 0 }}>📱 picked up for {e.durationSeconds}s</span>
@@ -665,7 +686,7 @@ function StatsDashboard() {
                         <div style={{ marginTop: 20, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
                             <p className="micro-label mb-4">ALL LOOK-AWAY EVENTS</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
-                                {[...require('../../lib/data').faceAwayEvents].map((e: any, i: number) => {
+                                {[...data.faceAwayEvents].map((e: any, i: number) => {
                                     const severity = e.durationSeconds > 60 ? 'High' : e.durationSeconds > 20 ? 'Medium' : 'Low';
                                     const sColor = e.durationSeconds > 60 ? '#C0392B' : e.durationSeconds > 20 ? '#B07A4A' : '#4A6741';
                                     return (
@@ -698,6 +719,14 @@ function StatsDashboard() {
 
             </main>
         </div>
+    );
+}
+
+function StatsDashboard() {
+    return (
+        <DataProvider>
+            <StatsDashboardContent />
+        </DataProvider>
     );
 }
 

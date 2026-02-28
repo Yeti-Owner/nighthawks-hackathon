@@ -24,10 +24,12 @@ import {
     totalSecondsDistracted,
 } from '../../lib/data';
 
+import { withAuthenticationRequired } from '@auth0/auth0-react';
+
 const periods = ['Today', 'All Time'];
 const filters = ['All Filters', 'Phone Pickups', 'Face Detection'];
 
-export default function StatsDashboard() {
+function StatsDashboard() {
     const [activePeriod, setActivePeriod] = useState('Today');
     const [activeFilter, setActiveFilter] = useState('All Filters');
 
@@ -699,3 +701,11 @@ export default function StatsDashboard() {
         </div>
     );
 }
+
+export default withAuthenticationRequired(StatsDashboard, {
+    onRedirecting: () => (
+        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9F8F5' }}>
+            <div className="animate-pulse-glow" style={{ width: 40, height: 40, borderRadius: '50%', background: '#D7C3B3' }} />
+        </div>
+    ),
+});

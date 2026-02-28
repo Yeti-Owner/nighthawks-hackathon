@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAuth0 } from '@auth0/auth0-react';
 import LiquidCard from '../components/LiquidCard';
 import SessionSetupModal from '../components/SessionSetupModal';
 import PomodoroTimer from '../components/PomodoroTimer';
@@ -27,10 +28,19 @@ const socialStats = [
 ];
 
 export default function LandingPage() {
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  const handleStartSession = () => {
+    if (!isAuthenticated) {
+      loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } });
+      return;
+    }
+    setIsSetupOpen(true);
+  };
 
   const handleEndSession = async () => {
     // 1. Stop trackers
@@ -179,7 +189,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             {!isSessionActive ? (
-              <button onClick={() => setIsSetupOpen(true)} className="btn-primary btn-large">
+              <button onClick={handleStartSession} className="btn-primary btn-large">
                 Start a Session
               </button>
             ) : (

@@ -171,7 +171,7 @@ export default function LandingPage() {
               maxWidth: 900,
             }}
           >
-            The discipline to study.<br />The data to improve.
+            Welcome to Aurelius.
           </h1>
 
           <p
@@ -223,31 +223,31 @@ export default function LandingPage() {
         </div>
 
         {/* Floating Session Card Visual */}
-        <div className="absolute right-[10%] top-[35%] animate-float hidden lg:block" style={{ width: 400, zIndex: 1 }}>
-          <LiquidCard padding="p-8">
-            <div className="flex justify-between items-center mb-6">
+        <div className="absolute right-[10%] top-[35%] animate-float hidden lg:block" style={{ width: 440, zIndex: 1 }}>
+          <LiquidCard padding="p-10">
+            <div className="flex justify-between items-start mb-6">
               <div className="flex items-center gap-2">
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--color-positive)' }} />
-                <span className="micro-label">LIVE SESSION</span>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--color-accent-metal)' }} />
+                <span className="micro-label" style={{ color: 'var(--color-text-secondary)' }}>AURELIUS PHILOSOPHY</span>
               </div>
-              <span className="micro-label">PHYSICS</span>
             </div>
 
             <div
               style={{
                 fontFamily: 'var(--font-serif), serif',
-                fontSize: 64,
-                letterSpacing: '-0.03em',
-                lineHeight: 1,
+                fontSize: 48,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1,
                 color: 'var(--color-text-primary)',
-                marginBottom: 8,
+                marginBottom: 16,
               }}
             >
-              02:47:13
+              The discipline to study.<br />
+              <span style={{ color: 'var(--color-accent-sand)' }}>The data to improve.</span>
             </div>
 
-            <p className="micro-label mb-8" style={{ color: 'var(--color-positive)' }}>
-              CURRENT FOCUS SCORE: 92
+            <p className="micro-label mb-2" style={{ color: 'var(--color-text-secondary)', fontSize: 11 }}>
+              ELEVATING EMPIRICAL METRICS TO COGNITIVE COMMAND
             </p>
 
             <div className="h-[48px] w-full flex items-end gap-1 opacity-50">

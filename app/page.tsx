@@ -38,21 +38,28 @@ export default function LandingPage() {
     setIsSessionActive(false);
 
     try {
-      // Kick off the end-session pipeline (stops scripts + fix + parse + send + receive)
+      // Kick off the end-session pipeline
       await fetch('http://localhost:8000/pipeline/end', { method: 'POST' });
 
-      // Poll until pipeline completes (max ~4 min)
-      for (let i = 0; i < 120; i++) {
-        await new Promise(r => setTimeout(r, 2000));
-        const res = await fetch('http://localhost:8000/pipeline/end/status');
-        const data = await res.json();
-        if (data.status !== 'running') {
-          setSyncResult(
-            data.status === 'completed'
-              ? 'Session data synced successfully!'
-              : `Pipeline finished with issues: ${data.error || 'unknown'}`
-          );
-          break;
+      // Poll every 5s, max 60 times (5 min)
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        try {
+          const res = await fetch('http://localhost:8000/pipeline/end/status');
+          const data = await res.json();
+          if (data.step) {
+            setSyncResult(`Processing: ${data.step}…`);
+          }
+          if (data.status !== 'running') {
+            setSyncResult(
+              data.status === 'completed'
+                ? 'Session data synced successfully!'
+                : `Pipeline issue: ${data.error || 'unknown'}`
+            );
+            break;
+          }
+        } catch {
+          // If poll fails, keep trying
         }
       }
     } catch (err) {
@@ -60,7 +67,7 @@ export default function LandingPage() {
       setSyncResult('Pipeline failed — is the manager running?');
     } finally {
       setIsSyncing(false);
-      setTimeout(() => setSyncResult(null), 5000);
+      setTimeout(() => setSyncResult(null), 8000);
     }
   };
 

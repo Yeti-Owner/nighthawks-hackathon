@@ -34,12 +34,12 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # ─────────────────────────────────────────────────────────────────
-#  CONFIGURATION  ← tweak these
+#  CONFIGURATION
 # ─────────────────────────────────────────────────────────────────
 
-CAPTURE_INTERVAL       = 0.5    # seconds between captures (0.5 = twice/sec)
+CAPTURE_INTERVAL       = 0.5    # seconds between frame reads
 OUTPUT_FOLDER          = os.path.join(os.path.dirname(__file__), "captures")
-CAMERA_INDEX           = 0      # 0 = default webcam
+CAMERA_INDEX           = 0
 
 try:
     import json
@@ -49,33 +49,23 @@ try:
 except Exception:
     pass
 
-# --- Rolling baseline buffer ---
-BUFFER_SIZE            = 10     # frames kept in rolling average (also the warm-up period)
+# --- Rolling baseline ---
+BUFFER_SIZE            = 10     # frames in rolling average
 
-# --- Pixel-level diff trigger ---
-# A pixel "counts" as changed if it differs from the baseline average by this many levels (0-255)
-PIXEL_DIFF_THRESHOLD   = 20     # lower = more sensitive to small changes
-# Percentage of total pixels that must be "changed" to trigger a save
-CHANGED_PIXEL_PCT      = 20.0    # lower = more sensitive; raise if saving too often
+# --- Trigger: brightness INCREASE only (screen lighting up) ---
+BRIGHTNESS_JUMP        = 25     # mean brightness must jump UP by this much
+MIN_BRIGHTNESS         = 80     # frame must be at least this bright to save (0-255)
 
-# --- Brightness-jump trigger (phone lighting up) ---
-# If the mean brightness of the frame jumps by this many levels vs the baseline mean, always save.
-# A phone going from off->on typically causes a +30-80 level jump depending on room lighting.
-BRIGHTNESS_JUMP        = 20     # lower = more sensitive to brightness changes
-
-# --- Dark frame removal ---
-# Frames whose mean greyscale is below this are considered "phone off / dark"
-DARK_BRIGHTNESS        = 50     # 0-255; raise if dark frames are being kept
-DELETE_DARK_FRAMES     = True   # delete dark frames automatically
+# --- Cooldown ---
+SAVE_COOLDOWN          = 5      # seconds between saves (prevents spam)
 
 # --- Debug ---
-PRINT_EVERY_N_FRAMES   = 5      # print live stats every N frames (1 = every frame, verbose)
+PRINT_EVERY_N_FRAMES   = 10
 
 # ─────────────────────────────────────────────────────────────────
 
 stop_flag = threading.Event()
 
-# Signal handler for clean subprocess shutdown (used by manager.py)
 def _handle_signal(signum, frame):
     stop_flag.set()
 
@@ -92,37 +82,15 @@ def to_grey(frame):
 
 
 def compute_baseline(buffer):
-    """Mean image across all frames in the buffer."""
     return np.mean(np.stack(buffer, axis=0), axis=0)
 
 
-def analyse_frame(grey_f32, baseline):
-    """
-    Returns (pixel_pct_changed, brightness_delta, base_mean, frame_mean).
-    grey_f32 and baseline are both float32 greyscale arrays.
-    """
-    diff = np.abs(grey_f32 - baseline)
-    changed_pixels = np.sum(diff > PIXEL_DIFF_THRESHOLD)
-    pixel_pct = (changed_pixels / grey_f32.size) * 100.0
-    frame_mean = float(np.mean(grey_f32))
-    base_mean  = float(np.mean(baseline))
-    brightness_delta = frame_mean - base_mean
-    return pixel_pct, brightness_delta, base_mean, frame_mean
-
-
-def is_significant(pixel_pct, brightness_delta):
-    pixel_trigger      = pixel_pct >= CHANGED_PIXEL_PCT
-    brightness_trigger = abs(brightness_delta) >= BRIGHTNESS_JUMP
-    return pixel_trigger or brightness_trigger, pixel_trigger, brightness_trigger
-
-
-def save_frame(frame, frame_mean):
+def save_frame(frame):
     ts = datetime.now(ZoneInfo("America/New_York")).strftime("%H_%M_%S")
-    state = "OFF" if frame_mean < DARK_BRIGHTNESS else "ON"
-    filename = f"capture_{ts}_{state}.jpg"
+    filename = f"capture_{ts}.jpg"
     filepath = os.path.join(OUTPUT_FOLDER, filename)
     cv2.imwrite(filepath, frame)
-    return filepath, state
+    return filepath
 
 
 def console_listener():
@@ -139,26 +107,18 @@ def run():
         return
 
     print("=" * 60)
-    print(f"  phone_watcher.py  -  saving to: {os.path.abspath(OUTPUT_FOLDER)}")
+    print(f"  noti_watcher  -  saving to: {os.path.abspath(OUTPUT_FOLDER)}")
     print("=" * 60)
-    print(f"  Interval          : {CAPTURE_INTERVAL}s")
-    print(f"  Buffer size       : {BUFFER_SIZE} frames (warm-up)")
-    print(f"  Pixel diff thresh : >{PIXEL_DIFF_THRESHOLD} levels  &  >{CHANGED_PIXEL_PCT:.1f}% pixels")
-    print(f"  Brightness jump   : >{BRIGHTNESS_JUMP} levels")
-    print(f"  Dark threshold    : <{DARK_BRIGHTNESS}  delete={DELETE_DARK_FRAMES}")
+    print(f"  Brightness jump   : +{BRIGHTNESS_JUMP} levels (increase only)")
+    print(f"  Min brightness    : {MIN_BRIGHTNESS}")
+    print(f"  Cooldown          : {SAVE_COOLDOWN}s between saves")
     print("=" * 60)
 
-    # Always-rolling buffer — filled with EVERY captured frame, not just saved ones.
-    # This means the baseline adapts to slow/gradual changes (lighting shift, etc.)
-    # but still catches sudden jumps like a phone screen turning on.
-    buffer   = deque(maxlen=BUFFER_SIZE)
-    baseline = None
+    buffer      = deque(maxlen=BUFFER_SIZE)
+    saved_count = 0
+    frame_count = 0
+    last_save   = 0.0  # timestamp of last save
 
-    saved_count   = 0
-    deleted_count = 0
-    frame_count   = 0
-
-    # Only use the interactive console listener in standalone mode
     if sys.stdin and sys.stdin.isatty():
         listener = threading.Thread(target=console_listener, daemon=True)
         listener.start()
@@ -169,57 +129,47 @@ def run():
 
             ret, frame = cap.read()
             if not ret:
-                print("[WARN] Failed to read frame, retrying...")
                 time.sleep(CAPTURE_INTERVAL)
                 continue
 
             frame_count += 1
             grey = to_grey(frame)
-
-            # Always push into the rolling buffer
             buffer.append(grey)
 
-            # Warm-up: don't save until buffer is full so baseline is meaningful
+            # Warm-up
             if len(buffer) < BUFFER_SIZE:
                 remaining = BUFFER_SIZE - len(buffer)
-                print(f"  [WARM-UP] Filling buffer... {remaining} frames left   ", end="\r")
+                print(f"  [WARM-UP] {remaining} frames left   ", end="\r")
                 elapsed = time.time() - t0
                 time.sleep(max(0, CAPTURE_INTERVAL - elapsed))
                 continue
 
-            # Recompute baseline each frame from the rolling buffer
             baseline = compute_baseline(buffer)
+            frame_mean = float(np.mean(grey))
+            base_mean  = float(np.mean(baseline))
+            brightness_delta = frame_mean - base_mean
 
-            # Analyse current frame vs baseline
-            pixel_pct, brightness_delta, base_mean, frame_mean = analyse_frame(grey, baseline)
-            triggered, by_pixel, by_brightness = is_significant(pixel_pct, brightness_delta)
-
-            # Live debug output
+            # Debug
             if frame_count % PRINT_EVERY_N_FRAMES == 0:
                 print(
                     f"  [LIVE] frame={frame_count:5d} | "
-                    f"base={base_mean:5.1f} | "
-                    f"now={frame_mean:5.1f} | "
-                    f"delta={brightness_delta:+6.1f} | "
-                    f"changed_px={pixel_pct:5.2f}%   "
+                    f"base={base_mean:5.1f} | now={frame_mean:5.1f} | "
+                    f"delta={brightness_delta:+6.1f}   "
                 )
 
-            # Save if triggered
-            if triggered:
-                filepath, state = save_frame(frame, frame_mean)
+            # Trigger: brightness INCREASED + frame is bright + cooldown elapsed
+            now = time.time()
+            if (brightness_delta >= BRIGHTNESS_JUMP
+                    and frame_mean >= MIN_BRIGHTNESS
+                    and (now - last_save) >= SAVE_COOLDOWN):
+                filepath = save_frame(frame)
                 saved_count += 1
-                reason = []
-                if by_pixel:      reason.append(f"pixel_pct={pixel_pct:.1f}%")
-                if by_brightness: reason.append(f"brightness_delta={brightness_delta:+.1f}")
-
-                if DELETE_DARK_FRAMES and state == "OFF":
-                    os.remove(filepath)
-                    deleted_count += 1
-                    print(f"\n  [DARK ] Deleted dark frame. {', '.join(reason)}  "
-                          f"| saved={saved_count} deleted={deleted_count}")
-                else:
-                    print(f"\n  [SAVED] {os.path.basename(filepath)}  {', '.join(reason)}  "
-                          f"| saved={saved_count} deleted={deleted_count}")
+                last_save = now
+                print(
+                    f"\n  [SAVED] {os.path.basename(filepath)}  "
+                    f"delta={brightness_delta:+.1f}  mean={frame_mean:.0f}  "
+                    f"| total={saved_count}"
+                )
 
             elapsed = time.time() - t0
             time.sleep(max(0, CAPTURE_INTERVAL - elapsed))
@@ -228,11 +178,7 @@ def run():
         print("\n[INFO] KeyboardInterrupt received.")
     finally:
         cap.release()
-        kept = saved_count - deleted_count
-        print(f"\n[DONE] frames captured={frame_count}  saved={saved_count}  "
-              f"deleted(dark)={deleted_count}  kept={kept}")
-        fix_pic = os.path.join(os.path.dirname(__file__), "fix_pic.py")
-        subprocess.call(["python", fix_pic, os.path.abspath(OUTPUT_FOLDER)])
+        print(f"\n[DONE] frames={frame_count}  saved={saved_count}")
 
 
 if __name__ == "__main__":

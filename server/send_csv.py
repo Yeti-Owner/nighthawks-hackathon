@@ -40,9 +40,9 @@ for field, filename in CSV_NAMES.items():
         fh = open(csv_path, "rb")
         handles.append(fh)
         files_to_send[field] = (filename, fh, "text/csv")
-        print(f"  ✓ Found {csv_path}")
+        print(f"  [OK] Found {csv_path}")
     else:
-        print(f"  ⚠ Skipping {filename} (not found)")
+        print(f"  [SKIP] {filename} (not found)")
 
 if not files_to_send:
     print("ERROR: No CSV files found in logs/ — nothing to send.")

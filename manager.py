@@ -258,12 +258,14 @@ class PipelineState:
         self.status = "running"  # running | completed | error
         self.current_step = "stopping"
         self.error: str | None = None
+        self.details: list[str] = []     # log per-step results
 
 pipeline_state: PipelineState | None = None
 
 
-def _run_script_sync(script_path: Path, args: list[str] | None = None, cwd: Path | None = None):
-    """Run a Python script synchronously, return (success, output)."""
+def _run_script_sync(script_path: Path, args: list[str] | None = None,
+                     cwd: Path | None = None, timeout: int = 120):
+    """Run a Python script synchronously. Returns True on success."""
     cmd = [sys.executable, str(script_path)] + (args or [])
     try:
         result = subprocess.run(
@@ -271,7 +273,7 @@ def _run_script_sync(script_path: Path, args: list[str] | None = None, cwd: Path
             cwd=str(cwd or script_path.parent),
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout,
         )
         print(f"  [pipeline] {script_path.name} exit={result.returncode}")
         if result.stdout:
@@ -280,24 +282,26 @@ def _run_script_sync(script_path: Path, args: list[str] | None = None, cwd: Path
             print(f"  [stderr] {result.stderr[:500]}")
         return result.returncode == 0
     except subprocess.TimeoutExpired:
-        print(f"  [pipeline] {script_path.name} TIMED OUT")
+        print(f"  [pipeline] {script_path.name} TIMED OUT after {timeout}s")
         return False
     except Exception as e:
         print(f"  [pipeline] {script_path.name} ERROR: {e}")
         return False
 
 
-async def _stop_step_quiet(step: str):
-    """Stop a step if it's running, ignore if it's not."""
+async def _force_stop(step: str):
+    """Force-kill a step immediately. No-op if not running."""
     state = steps.get(step)
-    if state and state.status == "running":
-        state.process.terminate()
-        try:
-            await asyncio.wait_for(state.process.wait(), timeout=5)
-        except asyncio.TimeoutError:
-            state.process.kill()
-        state.status = "stopped"
-        state.exit_code = state.process.returncode
+    if state is None or state.status != "running":
+        return
+    # On Windows, terminate() = TerminateProcess() which is immediate
+    state.process.kill()
+    try:
+        await asyncio.wait_for(state.process.wait(), timeout=3)
+    except asyncio.TimeoutError:
+        pass
+    state.status = "stopped"
+    state.exit_code = state.process.returncode
 
 
 async def _receive_data() -> dict[str, str]:
@@ -320,62 +324,81 @@ async def _receive_data() -> dict[str, str]:
 
 
 async def _run_end_pipeline():
-    """The full end-session pipeline. Runs as a background task."""
+    """The full end-session pipeline. Each step is independent — failures don't block the next."""
     global pipeline_state
     ps = pipeline_state
     if ps is None:
         return
 
-    try:
-        # 1. Stop all running trackers
-        ps.current_step = "stopping trackers"
-        print("[pipeline] Step 1: Stopping trackers...")
-        for s in ["study_tracker", "noti_watcher", "arduino_reader"]:
-            await _stop_step_quiet(s)
-        await asyncio.sleep(1)  # let processes settle
+    # 1. Force-stop all running trackers
+    ps.current_step = "stopping trackers"
+    print("[pipeline] Step 1/6: Stopping trackers...")
+    for s in ["study_tracker", "noti_watcher", "arduino_reader"]:
+        await _force_stop(s)
+    await asyncio.sleep(2)  # let processes fully exit + release files
+    ps.details.append("trackers stopped")
 
-        # 2. Run fix_pic on captures
-        ps.current_step = "fixing images"
-        print("[pipeline] Step 2: Running fix_pic...")
+    loop = asyncio.get_event_loop()
+
+    # 2. Run fix_pic on raw captures
+    ps.current_step = "fixing images"
+    print("[pipeline] Step 2/6: Running fix_pic...")
+    try:
         fix_pic = BASE_DIR / "notifications" / "fix_pic.py"
         captures = BASE_DIR / "notifications" / "captures"
         captures.mkdir(parents=True, exist_ok=True)
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _run_script_sync, fix_pic, [str(captures)], BASE_DIR)
-
-        # 3. Run parse_noti in batch mode
-        ps.current_step = "parsing notifications"
-        print("[pipeline] Step 3: Running parse_noti --batch...")
-        parse_noti = BASE_DIR / "notifications" / "parse_noti.py"
-        await loop.run_in_executor(None, _run_script_sync, parse_noti, ["--batch"], BASE_DIR)
-
-        # 4. Send CSVs to server
-        ps.current_step = "uploading CSVs"
-        print("[pipeline] Step 4: Running send_csv...")
-        send_csv = BASE_DIR / "server" / "send_csv.py"
-        await loop.run_in_executor(None, _run_script_sync, send_csv, None, BASE_DIR)
-
-        # 5. Brief pause
-        ps.current_step = "waiting for server"
-        print("[pipeline] Step 5: Waiting 2s for server to process...")
-        await asyncio.sleep(2)
-
-        # 6. Receive data from server
-        ps.current_step = "downloading data"
-        print("[pipeline] Step 6: Receiving data from Vultr...")
-        results = await _receive_data()
-        all_ok = all(v == "ok" for v in results.values())
-        print(f"[pipeline] Receive results: {results}")
-
-        ps.status = "completed" if all_ok else "completed"
-        ps.current_step = "done"
-        print("[pipeline] Pipeline finished successfully.")
-
+        ok = await loop.run_in_executor(
+            None, _run_script_sync, fix_pic, [str(captures)], BASE_DIR, 60)
+        ps.details.append(f"fix_pic: {'ok' if ok else 'failed'}")
     except Exception as e:
-        ps.status = "error"
-        ps.error = str(e)
-        ps.current_step = "failed"
-        print(f"[pipeline] Pipeline error: {e}")
+        print(f"[pipeline] fix_pic error: {e}")
+        ps.details.append(f"fix_pic: error {e}")
+
+    # 3. Stitch captures into grid and parse with ONE Gemini call
+    ps.current_step = "parsing notifications (Gemini)"
+    print("[pipeline] Step 3/6: Running stitch_and_parse...")
+    try:
+        stitch_script = BASE_DIR / "notifications" / "stitch_and_parse.py"
+        ok = await loop.run_in_executor(
+            None, _run_script_sync, stitch_script, None, BASE_DIR, 120)
+        ps.details.append(f"stitch_and_parse: {'ok' if ok else 'failed/skipped'}")
+    except Exception as e:
+        print(f"[pipeline] parse_noti error: {e}")
+        ps.details.append(f"parse_noti: error {e}")
+
+    # 4. Send CSVs to server
+    ps.current_step = "uploading CSVs"
+    print("[pipeline] Step 4/6: Running send_csv...")
+    try:
+        send_csv = BASE_DIR / "server" / "send_csv.py"
+        ok = await loop.run_in_executor(
+            None, _run_script_sync, send_csv, None, BASE_DIR, 30)
+        ps.details.append(f"send_csv: {'ok' if ok else 'failed'}")
+    except Exception as e:
+        print(f"[pipeline] send_csv error: {e}")
+        ps.details.append(f"send_csv: error {e}")
+
+    # 5. Brief pause for server to process
+    ps.current_step = "waiting for server"
+    print("[pipeline] Step 5/6: Waiting 3s...")
+    await asyncio.sleep(3)
+
+    # 6. Receive data from server → data/*.json
+    ps.current_step = "downloading data"
+    print("[pipeline] Step 6/6: Downloading from Vultr...")
+    try:
+        results = await _receive_data()
+        print(f"[pipeline] Receive results: {results}")
+        for t, v in results.items():
+            ps.details.append(f"receive_{t}: {v}")
+    except Exception as e:
+        print(f"[pipeline] receive error: {e}")
+        ps.details.append(f"receive: error {e}")
+
+    # Always mark completed so the frontend stops polling
+    ps.status = "completed"
+    ps.current_step = "done"
+    print(f"[pipeline] Done. Details: {ps.details}")
 
 
 @app.post("/pipeline/end")
@@ -383,7 +406,6 @@ async def pipeline_end():
     """Kick off the end-session pipeline (stop → fix → parse → send → receive)."""
     global pipeline_state
 
-    # Don't start if already running
     if pipeline_state and pipeline_state.status == "running":
         return {"status": "running", "step": pipeline_state.current_step}
 
@@ -401,6 +423,7 @@ async def pipeline_end_status():
         "status": pipeline_state.status,
         "step": pipeline_state.current_step,
         "error": pipeline_state.error,
+        "details": pipeline_state.details,
     }
 
 

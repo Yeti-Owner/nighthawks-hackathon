@@ -1,0 +1,5 @@
+timestamp,filename,has_notification,urgency,source,sender,summary,error
+1,1.png,True,Medium,Snapchat,Leah,Leah sent you a Snap.,
+3,3.png,False,,,,,
+4,4.png,True,Medium,iMessage,Leah,"Leah recorded her video for an assignment and was stuttering, feeling like she could cry.",
+8,8.png,True,Low,Discord,MusiCat,MusiCat is sending something.,

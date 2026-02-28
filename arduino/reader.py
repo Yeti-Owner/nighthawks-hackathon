@@ -1,4 +1,5 @@
 import serial
+import sys
 import time
 import csv
 from datetime import datetime
@@ -12,11 +13,16 @@ total_pickups = 0
 total_seconds = 0.0
 all_sessions = []
 
+try:
+    ser = serial.Serial(PORT, BAUD, timeout=1)
+except serial.SerialException as e:
+    print(f"ERROR: Could not connect to {PORT}: {e}")
+    print("Make sure the Arduino is plugged in and the port is correct.")
+    sys.exit(1)
+
 print("Connected to Arduino on " + PORT)
 print("Flip switch ON to start, OFF to save CSV")
 print("--------------------------------------------")
-
-ser = serial.Serial(PORT, BAUD, timeout=1)
 time.sleep(2)
 
 try:
@@ -58,11 +64,11 @@ try:
                     for s in all_sessions:
                         writer.writerow([s["session"], s["seconds"]])
 
-                print(f"\\nCSV saved to {filename}")
+                print(f"\nCSV saved to {filename}")
                 print("--------------------------------------------")
                 print("Flip switch ON to start a new session")
 
 except KeyboardInterrupt:
     print("Stopped.")
-
-ser.close()
+finally:
+    ser.close()

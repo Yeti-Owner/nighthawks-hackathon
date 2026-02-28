@@ -4,28 +4,33 @@ schemas.py
 Pydantic models for all data sources.
 Batch sizes are capped to prevent oversized payloads from
 spiking memory on the 512MB Vultr instance.
+
+Arduino / bridge note:
+  serial_bridge.py sends one POST per pickup to /arduino/log.
+  Payload per request:
+    session_id   : int  — increments per pickup (1, 2, 3…); acts as pickup ID
+    picked_up_at : str  — ISO datetime from the PC (e.g. "2025-01-15T14:32:00")
+    duration_sec : float — seconds the phone was held
 """
 
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
-# ── Batch size cap ─────────────────────────────────────────────────────────────
-# A typical study session won't come close to this. It's a safety ceiling
-# to prevent a malformed or runaway sender from blowing up RAM.
-MAX_BATCH = 500
+MAX_BATCH = 500   # safety ceiling on batch payloads
 
 
-# ── Arduino Log ───────────────────────────────────────────────────────────────
+# ── Arduino ───────────────────────────────────────────────────────────────────
 
 class ArduinoEntry(BaseModel):
-    session_id:   int
-    picked_up_at: str   = Field(..., description="HH:MM:SS EST — time phone was picked up")
+    """
+    One pickup event — matches the payload sent by serial_bridge.py.
+    session_id here is a per-pickup counter from the bridge, not a
+    study-session ID. Stats aggregate all arduino_log rows together.
+    """
+    session_id:   int   = Field(..., description="Per-pickup counter from bridge (1, 2, 3…)")
+    picked_up_at: str   = Field(..., description="ISO datetime from PC — e.g. 2025-01-15T14:32:00")
     duration_sec: float = Field(..., ge=0, description="Seconds the phone was held")
-
-
-class ArduinoBatch(BaseModel):
-    entries: List[ArduinoEntry] = Field(..., max_length=MAX_BATCH)
 
 
 # ── Study Tracker Log (Face Webcam) ──────────────────────────────────────────
@@ -51,13 +56,11 @@ class StudyBatch(BaseModel):
 # ── Phone Webcam Log (placeholder) ───────────────────────────────────────────
 
 class PhoneCamEvent(BaseModel):
-    """
-    Placeholder — define event_type codes once the phone-cam log format is set.
-    """
+    """Placeholder — define event_type codes once the phone-cam log format is set."""
     session_id: int
-    event_time: str            = Field(..., description="HH:MM:SS EST")
-    event_type: str            = Field(..., description="TBD — fill in phone-cam event codes")
-    extra_data: Optional[str]  = Field(None, description="Optional JSON string for extra fields")
+    event_time: str           = Field(..., description="HH:MM:SS EST")
+    event_type: str           = Field(..., description="TBD — fill in phone-cam event codes")
+    extra_data: Optional[str] = Field(None, description="Optional JSON string for extra fields")
 
 
 class PhoneCamBatch(BaseModel):
@@ -69,14 +72,15 @@ class PhoneCamBatch(BaseModel):
 class SessionStats(BaseModel):
     """
     Calculated values returned to the frontend.
-    All slots are present — formulas are filled in main.py.
+    Arduino stats are aggregated across all pickups, not per session_id.
+    All formula slots present — fill in main.py.
     """
     session_id: int
 
-    # Arduino-derived
+    # Arduino-derived (all pickups aggregated)
     phone_pickups:        Optional[int]   = None
-    total_phone_sec:      Optional[float] = None
-    avg_pickup_duration:  Optional[float] = None
+    total_held_sec:       Optional[float] = None
+    avg_held_sec:         Optional[float] = None
 
     # Face-cam-derived
     session_duration_sec: Optional[float] = None

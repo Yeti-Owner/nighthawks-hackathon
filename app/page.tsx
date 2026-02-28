@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import LiquidCard from '../components/LiquidCard';
+import SessionSetupModal from '../components/SessionSetupModal';
 import PomodoroTimer from '../components/PomodoroTimer';
 import { Activity, Clock, BarChart3, Eye, Timer, Lightbulb, TrendingUp, Users, Zap } from 'lucide-react';
 
@@ -25,6 +27,19 @@ const socialStats = [
 ];
 
 export default function LandingPage() {
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+
+  const handleEndSession = async () => {
+    try {
+      await fetch('http://localhost:8000/stop/study_tracker', { method: 'POST' });
+      await fetch('http://localhost:8000/stop/noti_watcher', { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to stop scripts', err);
+    }
+    setIsSessionActive(false);
+  };
+
   return (
     <main className="min-h-screen">
 
@@ -134,9 +149,19 @@ export default function LandingPage() {
           </p>
 
           <div className="flex items-center gap-4">
-            <Link href="/stats" className="btn-primary btn-large">
-              Start a Session
-            </Link>
+            {!isSessionActive ? (
+              <button onClick={() => setIsSetupOpen(true)} className="btn-primary btn-large">
+                Start a Session
+              </button>
+            ) : (
+              <button
+                onClick={handleEndSession}
+                className="btn-large"
+                style={{ background: '#C0392B', color: '#fff', border: 'none', borderRadius: 99, padding: '0 32px', fontWeight: 600 }}
+              >
+                End Session
+              </button>
+            )}
             <Link href="/stats" className="btn-ghost btn-large">
               View Demo Stats
             </Link>
@@ -458,6 +483,14 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <SessionSetupModal
+        isOpen={isSetupOpen}
+        onClose={() => {
+          setIsSetupOpen(false);
+          setIsSessionActive(true);
+        }}
+      />
     </main>
   );
 }

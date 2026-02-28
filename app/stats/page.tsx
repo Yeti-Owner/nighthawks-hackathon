@@ -8,6 +8,7 @@ import DailyHoursChart from '../../components/charts/DailyHoursChart';
 import SubjectBarChart from '../../components/charts/SubjectBarChart';
 import DistractionDonut from '../../components/charts/DistractionDonut';
 import TopAppsList from '../../components/TopAppsList';
+import UrgencyTracker from '../../components/UrgencyTracker';
 import SessionTable from '../../components/SessionTable';
 import PhonePickupsChart from '../../components/charts/PhonePickupsChart';
 import FaceDetectionChart from '../../components/charts/FaceDetectionChart';
@@ -67,6 +68,8 @@ function StatsDashboardContent() {
         avgLookAwaySeconds,
         longestLookAway,
         totalSecondsDistracted,
+        totalHighUrgency,
+        totalLowUrgency,
     } = data;
 
     return (
@@ -171,7 +174,7 @@ function StatsDashboardContent() {
                     }}>
                         <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 14 }}>TODAY AT A GLANCE</p>
                         {[
-                            { label: 'Study time', value: '2h 47m', color: '#2C3E50' },
+                            { label: 'Study time', value: `${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`, color: '#2C3E50' },
                             { label: 'Phone pickups', value: `${totalPhonePickups}×`, color: '#B07A4A' },
                             { label: 'Look-aways', value: `${totalLookAways}×`, color: '#C0392B' },
                             { label: 'Focus score', value: `${avgFocusScore}`, color: '#4A6741' },
@@ -507,8 +510,9 @@ function StatsDashboardContent() {
                         <DistractionDonut />
                     </LiquidCard>
 
-                    <div className="flex-grow w-full lg:w-[50%]">
+                    <div className="flex flex-col gap-8 flex-grow w-full lg:w-[50%]">
                         <TopAppsList />
+                        <UrgencyTracker />
                     </div>
                 </div>
 

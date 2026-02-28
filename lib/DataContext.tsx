@@ -13,6 +13,8 @@ export interface StatsData {
     totalSessions: number;
     avgFocusScore: number;
     totalInterruptions: number;
+    totalHighUrgency: number;
+    totalLowUrgency: number;
     subjectHours: Array<{ subject: string, hours: number }>;
     phonePickupEvents: PhonePickupEvent[];
     totalPhonePickups: number;
@@ -39,7 +41,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function fetchStats() {
             try {
-                const res = await fetch('/api/stats');
+                const res = await fetch('/api/stats', { cache: 'no-store' });
                 if (!res.ok) throw new Error(`HTTP error ${res.status}`);
                 const json = await res.json();
                 if (json.error) throw new Error(json.error);

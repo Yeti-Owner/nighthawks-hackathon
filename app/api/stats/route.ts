@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 // Define the colors used in the quiet luxury design system
 const QUIET_LUXURY_COLORS = [
     '#2C3E50', // Midnight Blue
@@ -122,9 +124,19 @@ export async function GET() {
         // --- Process Distraction Sources and Apps ---
         const validNotis = notifications.filter(n => n.has_notification === "True" && n.source);
         const sourceCounts: Record<string, number> = {};
+        let totalHighUrgency = 0;
+        let totalLowUrgency = 0;
+
         validNotis.forEach(n => {
             const src = n.source || "Other";
             sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+
+            const urg = (n.urgency || "").toLowerCase().trim();
+            if (urg === "high") {
+                totalHighUrgency++;
+            } else {
+                totalLowUrgency++; // Count blanks, "low", or unknown as Low Priority
+            }
         });
 
         let colorIndex = 0;
@@ -228,6 +240,8 @@ export async function GET() {
             totalSessions,
             avgFocusScore,
             totalInterruptions,
+            totalHighUrgency,
+            totalLowUrgency,
             subjectHours,
             phonePickupEvents,
             totalPhonePickups,

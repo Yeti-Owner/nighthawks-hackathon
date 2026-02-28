@@ -1,31 +1,6 @@
-============================================================
-  CALIBRATION RESULTS
-  Generated: 2026-02-27 20:44:12 EST
-============================================================
-
-CAPTURED ANGLES (degrees)
-----------------------------------------
-        center:  Yaw=   +8.0  Pitch=   +2.7  Roll=   +4.6
-          left:  Yaw=  -23.9  Pitch=   +4.1  Roll=   +3.7
-         right:  Yaw=  +28.8  Pitch=   +4.1  Roll=   +4.2
-           top:  Yaw=   +7.8  Pitch=   -1.3  Roll=   +3.0
-        bottom:  Yaw=  +10.3  Pitch=   +4.8  Roll=   +3.8
-     tilt_left:  Yaw=  -12.2  Pitch=   +1.0  Roll=  +20.1
-    tilt_right:  Yaw=  +12.5  Pitch=   +0.3  Roll=  -24.1
-
-RECOMMENDED THRESHOLDS
-----------------------------------------
-  YAW_THRESHOLD        = 37.0
-  PITCH_UP_THRESHOLD   = 9.0
-  PITCH_DOWN_THRESHOLD = 7.0
-  ROLL_THRESHOLD       = 33.7
-
-HOW TO USE
-----------------------------------------
-  Copy the recommended thresholds above into the top of
-  study_tracker.py, replacing the existing threshold constants.
-
-  Margin added: 5 degrees beyond max observed angle
-  Increase the margin if you get false 'look away' events.
-  Decrease the margin if it doesn't catch enough look-aways.
-============================================================
+{
+    "YAW_THRESHOLD": 28.6,
+    "PITCH_UP_THRESHOLD": 8.4,
+    "PITCH_DOWN_THRESHOLD": 7.6,
+    "ROLL_THRESHOLD": 40.8
+}

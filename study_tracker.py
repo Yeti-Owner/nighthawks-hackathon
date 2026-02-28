@@ -21,6 +21,7 @@ os.environ["GLOG_minloglevel"] = "3"               # Hide MediaPipe C++ warnings
 
 import contextlib
 import csv
+import json
 import sys
 import time
 import threading
@@ -46,6 +47,16 @@ YAW_THRESHOLD = 37.0          # Max degrees head can turn left/right (horizontal
 PITCH_UP_THRESHOLD = 9.0    # Max degrees head can tilt up (looking up = negative pitch)
 PITCH_DOWN_THRESHOLD = 7.0  # Max degrees head can tilt down (looking down = positive pitch)
 ROLL_THRESHOLD = 33.7         # Max degrees head can tilt sideways
+
+try:
+    with open(Path(__file__).parent.resolve() / "calibration_config.txt", "r") as f:
+        _config = json.load(f)
+    YAW_THRESHOLD = _config.get("YAW_THRESHOLD", YAW_THRESHOLD)
+    PITCH_UP_THRESHOLD = _config.get("PITCH_UP_THRESHOLD", PITCH_UP_THRESHOLD)
+    PITCH_DOWN_THRESHOLD = _config.get("PITCH_DOWN_THRESHOLD", PITCH_DOWN_THRESHOLD)
+    ROLL_THRESHOLD = _config.get("ROLL_THRESHOLD", ROLL_THRESHOLD)
+except Exception:
+    pass
 
 # ──────────────────────────────────────────────────────────────────────────────
 # IRIS GAZE THRESHOLDS (ratio 0.0–1.0)

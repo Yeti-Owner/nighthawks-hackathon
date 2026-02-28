@@ -257,43 +257,9 @@ def compute_thresholds(captures):
 
 def write_output(captures, thresholds):
     """Write calibration results to the output text file."""
-    timestamp = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S %Z")
-
-    lines = [
-        "=" * 60,
-        "  CALIBRATION RESULTS",
-        f"  Generated: {timestamp}",
-        "=" * 60,
-        "",
-        "CAPTURED ANGLES (degrees)",
-        "-" * 40,
-    ]
-
-    for name, (yaw, pitch, roll) in captures.items():
-        lines.append(f"  {name:>12s}:  Yaw={yaw:+7.1f}  Pitch={pitch:+7.1f}  Roll={roll:+7.1f}")
-
-    lines += [
-        "",
-        "RECOMMENDED THRESHOLDS",
-        "-" * 40,
-        f"  YAW_THRESHOLD        = {thresholds['YAW_THRESHOLD']}",
-        f"  PITCH_UP_THRESHOLD   = {thresholds['PITCH_UP_THRESHOLD']}",
-        f"  PITCH_DOWN_THRESHOLD = {thresholds['PITCH_DOWN_THRESHOLD']}",
-        f"  ROLL_THRESHOLD       = {thresholds['ROLL_THRESHOLD']}",
-        "",
-        "HOW TO USE",
-        "-" * 40,
-        "  Copy the recommended thresholds above into the top of",
-        "  study_tracker.py, replacing the existing threshold constants.",
-        "",
-        f"  Margin added: {THRESHOLD_MARGIN} degrees beyond max observed angle",
-        "  Increase the margin if you get false 'look away' events.",
-        "  Decrease the margin if it doesn't catch enough look-aways.",
-        "=" * 60,
-    ]
-
+    import json
     with open(OUTPUT_PATH, "w") as f:
-        f.write("\n".join(lines) + "\n")
+        json.dump(thresholds, f, indent=4)
 
     return OUTPUT_PATH
 
@@ -414,7 +380,7 @@ def main():
     for name, value in thresholds.items():
         print(f"    {name:24s} = {value}")
     print()
-    print("  Copy these values into the top of study_tracker.py")
+    print("  study_tracker.py will use these values automatically.")
     print("=" * 60)
 
 

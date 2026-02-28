@@ -11,9 +11,6 @@ import SessionTable from '../../components/SessionTable';
 import PhonePickupsChart from '../../components/charts/PhonePickupsChart';
 import FaceDetectionChart from '../../components/charts/FaceDetectionChart';
 import {
-    totalStudyMinutes,
-    totalSessions,
-    avgFocusScore,
     processNotifications,
     processFaceEvents,
     processPickups,
@@ -37,6 +34,9 @@ function StatsDashboard() {
     const [distractionStats, setDistractionStats] = useState({ sources: [] as DistractionSource[], apps: [] as TopApp[], total: 0 });
     const [faceStats, setFaceStats] = useState({ events: [] as FaceAwayEvent[], total: 0, avg: 0, longest: 0, totalDistracted: 0 });
     const [pickupStats, setPickupStats] = useState({ events: [] as PhonePickupEvent[], total: 0, avgUnattended: 0, longestUnattended: 0 });
+    const [dynamicFocusScore, setDynamicFocusScore] = useState(100);
+    const [dynamicTotalSessions, setDynamicTotalSessions] = useState(0);
+    const [dynamicTotalStudyMinutes, setDynamicTotalStudyMinutes] = useState(0);
 
     const phonePickupsRef = useRef<HTMLDivElement>(null);
     const faceDetectionRef = useRef<HTMLDivElement>(null);
@@ -61,6 +61,27 @@ function StatsDashboard() {
                 setDistractionStats({ sources: dStats.distractionSources, apps: dStats.topApps, total: dStats.totalInterruptions });
                 setFaceStats({ events: fStats.faceAwayEvents, total: fStats.totalLookAways, avg: fStats.avgLookAwaySeconds, longest: fStats.longestLookAway, totalDistracted: fStats.totalSecondsDistracted });
                 setPickupStats({ events: pStats.phonePickupEvents, total: pStats.totalPhonePickups, avgUnattended: pStats.avgUnattendedMinutes, longestUnattended: pStats.longestUnattended });
+
+                // Calculate an arbitrary but visually realistic focus score (0-100)
+                const facePenalty = fStats.totalSecondsDistracted / 10;
+                const phonePenalty = pStats.totalPhonePickups * 5;
+                const notifPenalty = dStats.totalInterruptions * 2;
+                const calculatedScore = Math.max(0, Math.min(100, Math.round(100 - facePenalty - phonePenalty - notifPenalty)));
+
+                setDynamicFocusScore(calculatedScore);
+
+                // For the hackathon demo, guess the total sessions/time based on JSON length
+                setDynamicTotalSessions(faceJson.length > 0 ? 1 : 0);
+
+                if (faceJson.length > 0) {
+                    // Get total time of last session
+                    const firstEvent = new Date(`1970-01-01T${faceJson[0].time}Z`);
+                    const lastEvent = new Date(`1970-01-01T${faceJson[faceJson.length - 1].time}Z`);
+                    const sessionMinutes = Math.max(15, Math.round((lastEvent.getTime() - firstEvent.getTime()) / 60000));
+                    setDynamicTotalStudyMinutes(sessionMinutes);
+                } else {
+                    setDynamicTotalStudyMinutes(0);
+                }
             } catch (e) {
                 console.error("Failed to load local JSON files:", e);
             } finally {
@@ -193,10 +214,10 @@ function StatsDashboard() {
                     }}>
                         <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#C8B89A', marginBottom: 14 }}>TODAY AT A GLANCE</p>
                         {[
-                            { label: 'Study time', value: '2h 47m', color: '#2C3E50' },
+                            { label: 'Study time', value: `${Math.floor(dynamicTotalStudyMinutes / 60)}h ${dynamicTotalStudyMinutes % 60}m`, color: '#2C3E50' },
                             { label: 'Phone pickups', value: `${pickupStats.total}×`, color: '#B07A4A' },
                             { label: 'Look-aways', value: `${faceStats.total}×`, color: '#C0392B' },
-                            { label: 'Focus score', value: `${avgFocusScore}`, color: '#4A6741' },
+                            { label: 'Focus score', value: `${dynamicFocusScore}`, color: '#4A6741' },
                         ].map(({ label, value, color }) => (
                             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#888' }}>{label}</span>
@@ -207,12 +228,12 @@ function StatsDashboard() {
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#B0B0B0', fontWeight: 600, letterSpacing: '0.08em' }}>FOCUS QUALITY</span>
-                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#888' }}>{avgFocusScore}%</span>
+                                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#888' }}>{dynamicFocusScore}%</span>
                             </div>
                             <div style={{ height: 5, borderRadius: 99, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                                 <div style={{
                                     height: '100%',
-                                    width: `${avgFocusScore}%`,
+                                    width: `${dynamicFocusScore}%`,
                                     borderRadius: 99,
                                     background: 'linear-gradient(90deg, #B07A4A, #4A6741)',
                                     transition: 'width 1s ease',
@@ -243,7 +264,7 @@ function StatsDashboard() {
                                 <circle cx={44} cy={44} r={36} fill="none" stroke="url(#sidebarGrad)" strokeWidth="5"
                                     strokeLinecap="round"
                                     strokeDasharray={2 * Math.PI * 36}
-                                    strokeDashoffset={2 * Math.PI * 36 * (1 - avgFocusScore / 100)}
+                                    strokeDashoffset={2 * Math.PI * 36 * (1 - dynamicFocusScore / 100)}
                                     style={{ transition: 'stroke-dashoffset 1.5s ease' }}
                                 />
                                 <defs>
@@ -255,7 +276,7 @@ function StatsDashboard() {
                             </svg>
                             {/* Centre score */}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#1A1A1A', letterSpacing: '-0.03em', lineHeight: 1 }}>{avgFocusScore}</span>
+                                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#1A1A1A', letterSpacing: '-0.03em', lineHeight: 1 }}>{dynamicFocusScore}</span>
                                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#B0B0B0', fontWeight: 600, letterSpacing: '0.08em', marginTop: 2 }}>SCORE</span>
                             </div>
                         </div>
@@ -476,9 +497,9 @@ function StatsDashboard() {
                     {/* Quick-stat chips */}
                     <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                         {[
-                            { label: 'Study Time', value: `${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`, accent: '#2C3E50' },
-                            { label: 'Sessions', value: String(totalSessions), accent: '#B07A4A' },
-                            { label: 'Focus Score', value: `${avgFocusScore} / 100`, accent: '#4A6741' },
+                            { label: 'Study Time', value: `${Math.floor(dynamicTotalStudyMinutes / 60)}h ${dynamicTotalStudyMinutes % 60}m`, accent: '#2C3E50' },
+                            { label: 'Sessions', value: String(dynamicTotalSessions), accent: '#B07A4A' },
+                            { label: 'Focus Score', value: `${dynamicFocusScore} / 100`, accent: '#4A6741' },
                             { label: 'Interruptions', value: String(distractionStats.total), accent: '#C0392B' },
                         ].map(({ label, value, accent }) => (
                             <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -492,21 +513,21 @@ function StatsDashboard() {
                 {/* Row 1: KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mb-[64px]">
                     <KpiCard
-                        value={`${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`}
+                        value={`${Math.floor(dynamicTotalStudyMinutes / 60)}h ${dynamicTotalStudyMinutes % 60}m`}
                         label="TOTAL STUDY TIME"
                         trend="+12% vs last month"
                         trendType="positive"
                         delay={0}
                     />
                     <KpiCard
-                        value={totalSessions.toString()}
+                        value={dynamicTotalSessions.toString()}
                         label="SESSIONS COMPLETED"
                         trend="+8 this month"
                         trendType="neutral"
                         delay={80}
                     />
                     <KpiCard
-                        value={avgFocusScore.toString()}
+                        value={dynamicFocusScore.toString()}
                         label="AVG. FOCUS SCORE"
                         trend="+3 pts"
                         trendType="positive"

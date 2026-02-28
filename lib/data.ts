@@ -11,16 +11,9 @@ export interface FaceAwayEvent {
     durationSeconds: number;
 }
 
-// Dummy data for generic parts that don't have json files yet.
-export const studySessions: StudySession[] = [
-    { date: "2024-01-15", subject: "Physics", duration: 120, interruptions: 4, focusScore: 88, notes: "Thermodynamics chapter" },
-    { date: "2024-01-16", subject: "Mathematics", duration: 95, interruptions: 7, focusScore: 71, notes: "Integration practice" },
-];
-
-export const dailyHours: DailyHour[] = [
-    { date: "Jan 1", hours: 2.5 },
-    { date: "Jan 2", hours: 3.1 },
-];
+// Empty arrays for generic parts that don't have json files yet.
+export const studySessions: StudySession[] = [];
+export const dailyHours: DailyHour[] = [];
 
 export function processNotifications(notificationsJson: any[]): { distractionSources: DistractionSource[], topApps: TopApp[], totalInterruptions: number } {
     if (!notificationsJson || notificationsJson.length === 0) {
@@ -125,16 +118,7 @@ export function processPickups(pickedupJson: any[]): { phonePickupEvents: PhoneP
     return { phonePickupEvents: events, totalPhonePickups, avgUnattendedMinutes, longestUnattended };
 }
 
-export const totalStudyMinutes = studySessions.reduce((sum, s) => sum + s.duration, 0);
-export const totalSessions = studySessions.length;
-export const avgFocusScore = studySessions.length > 0 ? Math.round(studySessions.reduce((sum, s) => sum + s.focusScore, 0) / studySessions.length) : 0;
-
-export const subjectHours = Object.entries(
-    studySessions.reduce<Record<string, number>>((acc, s) => {
-        acc[s.subject] = (acc[s.subject] || 0) + s.duration / 60;
-        return acc;
-    }, {})
-).map(([subject, hours]) => ({ subject, hours: Math.round(hours * 10) / 10 }))
-    .sort((a, b) => b.hours - a.hours);
-
-
+export const totalStudyMinutes = 0;
+export const totalSessions = 0;
+export const avgFocusScore = 0;
+export const subjectHours: { subject: string, hours: number }[] = [];

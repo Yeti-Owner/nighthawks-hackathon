@@ -12,7 +12,7 @@ Start with:
 
 import asyncio
 import sys
-import subprocess
+
 import uvicorn
 from pathlib import Path
 
@@ -115,14 +115,9 @@ async def start_step(step: str, headless: bool = Query(False)):
     if step == "study_tracker" and headless:
         cmd.append("--headless")
 
-    kwargs = {"cwd": str(script.parent)}
-    if sys.platform == "win32":
-        if not headless:
-            kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-
     proc = await asyncio.create_subprocess_exec(
         *cmd,
-        **kwargs
+        cwd=str(script.parent),
     )
 
     steps[step] = StepState(proc)

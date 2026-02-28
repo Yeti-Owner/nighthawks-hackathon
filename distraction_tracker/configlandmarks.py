@@ -1,6 +1,6 @@
 """
-Calibration Script — Configure Gaze Detection Landmarks
-=========================================================
+AURELIUS — Gaze Calibration
+============================
 Guides the user through looking at each edge/corner of the screen,
 captures head pose angles (pitch, yaw, roll) at each position via
 hotkey, and outputs personalized thresholds to calibration_config.txt.
@@ -182,47 +182,58 @@ def estimate_head_pose(landmarks, w, h):
     return yaw, pitch, roll
 
 
+# ── Aurelius Color Palette (BGR for OpenCV) ──────────────────────────────────
+_CLR_CHARCOAL   = (26, 26, 26)       # #1A1A1A — banner bg
+_CLR_PEARL      = (245, 248, 249)    # #F9F8F5 — primary instruction text
+_CLR_ROSE_GOLD  = (179, 195, 215)    # #D7C3B3 — step counter / accent
+_CLR_PLATINUM   = (173, 169, 168)    # #A8A9AD — secondary instruction text
+_CLR_MIDNIGHT   = (80, 62, 44)       # #2C3E50 — angle readout
+_CLR_GREEN      = (50, 125, 46)      # #2E7D32 — capture flash
+_CLR_RED        = (40, 40, 198)      # #C62828 — no-face warning
+
+
 def draw_instructions(frame, step_index, total_steps, step_name, line1, line2):
     """Draw the calibration instruction overlay on the frame."""
     h, w = frame.shape[:2]
 
-    # Semi-transparent dark banner at the top
+    # Semi-transparent charcoal banner at the top
     overlay = frame.copy()
-    cv2.rectangle(overlay, (0, 0), (w, 120), (30, 30, 30), -1)
-    cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+    cv2.rectangle(overlay, (0, 0), (w, 120), _CLR_CHARCOAL, -1)
+    cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
 
-    # Step counter
-    step_text = f"Step {step_index + 1} / {total_steps}  —  {step_name.upper()}"
-    cv2.putText(frame, step_text, (15, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 200, 255), 2)
+    # Step counter — Rose Gold micro-label style
+    step_text = f"STEP {step_index + 1} OF {total_steps}  —  {step_name.upper()}"
+    cv2.putText(frame, step_text, (16, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, _CLR_ROSE_GOLD, 1, cv2.LINE_AA)
 
-    # Instructions
-    cv2.putText(frame, line1, (15, 65),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-    cv2.putText(frame, line2, (15, 95),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 180, 180), 1)
+    # Primary instruction — Warm Pearl
+    cv2.putText(frame, line1, (16, 65),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, _CLR_PEARL, 1, cv2.LINE_AA)
+
+    # Secondary instruction — Platinum
+    cv2.putText(frame, line2, (16, 95),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, _CLR_PLATINUM, 1, cv2.LINE_AA)
 
 
-def draw_angles(frame, yaw, pitch, roll):
-    """Draw the current head pose angles on the frame."""
+def draw_status(frame, face_detected, yaw=0.0, pitch=0.0, roll=0.0):
+    """Draw a minimal status bar at the bottom of the frame."""
     h, w = frame.shape[:2]
-    angle_text = f"Yaw: {yaw:+.1f}   Pitch: {pitch:+.1f}   Roll: {roll:+.1f}"
-    cv2.putText(frame, angle_text, (15, h - 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 200), 1)
 
-
-def draw_no_face(frame):
-    """Draw a warning when no face is detected."""
-    h, w = frame.shape[:2]
-    cv2.putText(frame, "NO FACE DETECTED — adjust your position", (15, h - 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+    if face_detected:
+        # Simple face-detected indicator in Midnight Blue
+        cv2.putText(frame, "Face detected", (16, h - 16),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, _CLR_MIDNIGHT, 1, cv2.LINE_AA)
+    else:
+        # No-face warning in muted red
+        cv2.putText(frame, "No face detected  —  adjust your position", (16, h - 16),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, _CLR_RED, 1, cv2.LINE_AA)
 
 
 def draw_captured(frame):
-    """Flash a brief green 'CAPTURED!' indicator."""
+    """Flash a brief green 'CAPTURED' indicator."""
     h, w = frame.shape[:2]
-    cv2.putText(frame, "CAPTURED!", (w // 2 - 80, h // 2),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
+    cv2.putText(frame, "CAPTURED", (w // 2 - 70, h // 2),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, _CLR_GREEN, 2, cv2.LINE_AA)
 
 
 def compute_thresholds(captures):
@@ -278,10 +289,10 @@ def write_output(captures, thresholds):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    print("=" * 60)
-    print("  Landmark Calibration Tool")
-    print("  Press SPACE to capture | Q to quit")
-    print("=" * 60)
+    print()
+    print("  AURELIUS — Gaze Calibration")
+    print("  Press SPACE to capture  |  Q to quit")
+    print()
 
     # ── Initialize MediaPipe ──────────────────────────────────────────────
     BaseOptions = mp.tasks.BaseOptions
@@ -340,28 +351,21 @@ def main():
             # Draw UI
             draw_instructions(frame, current_step, len(CALIBRATION_STEPS),
                               step_name, line1, line2)
+            draw_status(frame, face_detected, cur_yaw, cur_pitch, cur_roll)
 
-            if face_detected:
-                draw_angles(frame, cur_yaw, cur_pitch, cur_roll)
-            else:
-                draw_no_face(frame)
-
-            # Show "CAPTURED!" flash
+            # Show "CAPTURED" flash
             if time.monotonic() < capture_flash_until:
                 draw_captured(frame)
 
-            cv2.imshow("Landmark Calibration", frame)
+            cv2.imshow("AURELIUS  —  Gaze Calibration", frame)
             key = cv2.waitKey(FRAME_DELAY_MS) & 0xFF
 
             if key == ord('q'):
-                print("\n  Calibration cancelled by user.")
+                print("  Calibration cancelled.")
                 return
 
             if key == ord(' ') and face_detected:
                 captures[step_name] = (cur_yaw, cur_pitch, cur_roll)
-                print(f"  [{current_step + 1}/{len(CALIBRATION_STEPS)}] "
-                      f"{step_name}: Yaw={cur_yaw:+.1f} Pitch={cur_pitch:+.1f} "
-                      f"Roll={cur_roll:+.1f}")
                 capture_flash_until = time.monotonic() + 0.5
                 current_step += 1
 
@@ -377,20 +381,14 @@ def main():
         landmarker.close()
 
     # ── All steps captured — compute and write results ────────────────────
-    print("\n" + "=" * 60)
-    print("  All positions captured! Computing thresholds...")
+    print()
+    print("  Calibration complete.")
 
     thresholds = compute_thresholds(captures)
     output_file = write_output(captures, thresholds)
 
-    print(f"\n  Results written to: {output_file}")
+    print(f"  Configuration saved to: {output_file}")
     print()
-    print("  Recommended thresholds:")
-    for name, value in thresholds.items():
-        print(f"    {name:24s} = {value}")
-    print()
-    print("  study_tracker.py will use these values automatically.")
-    print("=" * 60)
 
 
 if __name__ == "__main__":

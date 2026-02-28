@@ -4,3 +4,6 @@ mediapipe
 fastapi
 uvicorn
 Pillow
+requests
+python-dotenv
+watchdog

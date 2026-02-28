@@ -34,7 +34,7 @@ from datetime import datetime
 # ─────────────────────────────────────────────────────────────────
 
 CAPTURE_INTERVAL       = 0.5    # seconds between captures (0.5 = twice/sec)
-OUTPUT_FOLDER          = "captures"
+OUTPUT_FOLDER          = os.path.join(os.path.dirname(__file__), "..", "logs", "captures")
 CAMERA_INDEX           = 0      # 0 = default webcam
 
 try:

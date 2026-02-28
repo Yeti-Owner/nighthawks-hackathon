@@ -1,81 +1,41 @@
-# ==========================================
-# Custom Requirements
-# ==========================================
-# Hide environment files
-*.env
-*.env.local
-*.env.development.local
-*.env.test.local
-*.env.production.local
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Hide Markdown files (per request)
-*.md
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# ==========================================
-# Python
-# ==========================================
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
-venv/
-ENV/
-env/
-build/
-dist/
-*.egg-info/
+# testing
+/coverage
 
-# ==========================================
-# C++ (General & VS/VS Code)
-# ==========================================
-*.out
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.lib
-# Compilation databases/logs
-.vscode/
-.vs/
-Debug/
-Release/
-x64/
-x86/
-*.pdb
-*.ilk
+# next.js
+/.next/
+/out/
 
-# ==========================================
-# NPM / React / TypeScript
-# ==========================================
-node_modules/
+# production
 /build
-/dist
-.cache/
-.eslintcache
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.prettiercache
+.pnpm-debug.log*
 
-# TypeScript specific
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
 *.tsbuildinfo
-
-# ==========================================
-# Arduino
-# ==========================================
-# Standard Arduino build folders
-build/
-bin/
-# Local library backups
-.libraries/
-
-# ==========================================
-# OS / IDE Specific
-# ==========================================
-.DS_Store
-Thumbs.db
-.idea/
-.project
-.settings/
+next-env.d.ts

@@ -64,7 +64,7 @@ try:
                     for s in all_sessions:
                         writer.writerow([s["session"], s["seconds"]])
 
-                print(f"\nCSV saved to {filename}")
+                print(f"\nCSV saved to {filename} ({len(all_sessions)} pickups)")
                 print("--------------------------------------------")
                 print("Flip switch ON to start a new session")
 

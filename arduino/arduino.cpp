@@ -1,10 +1,11 @@
 const int SENSOR_PIN  = 2;
 const int SWITCH_PIN  = 3;
 
-bool foilTouching = false;
-bool wasTouching  = false;
-bool sessionActive = false;
-bool lastSwitchState = false;
+bool foilTouching      = false;
+bool wasTouching       = false;
+bool sessionActive     = false;
+bool lastSwitchState   = false;
+bool hasBeenPickedUp   = false;   // only count PUT DOWN after a real pickup
 
 unsigned long separatedStartMillis = 0;
 unsigned long totalSeparatedTime   = 0;
@@ -31,21 +32,26 @@ void setup() {
 void loop() {
   bool switchOn = (digitalRead(SWITCH_PIN) == LOW);
 
+  // --- Switch ON: start a new session ---
   if (switchOn && !lastSwitchState) {
-    sessionActive      = true;
-    separationCount    = 0;
-    sessionCount       = 0;
-    totalSeparatedTime = 0;
-    foilTouching       = false;
-    wasTouching        = false;
+    sessionActive        = true;
+    hasBeenPickedUp      = false;
+    separationCount      = 0;
+    sessionCount         = 0;
+    totalSeparatedTime   = 0;
+    separatedStartMillis = 0;
+    foilTouching         = (digitalRead(SENSOR_PIN) == LOW);
+    wasTouching          = foilTouching;       // sync so first read is not a transition
     Serial.println(">> SESSION STARTED");
     Serial.println("----------------------------");
   }
 
+  // --- Switch OFF: end session and dump CSV data ---
   if (!switchOn && lastSwitchState) {
     sessionActive = false;
 
-    if (!foilTouching && separatedStartMillis > 0) {
+    // If phone is still picked up when session ends, record that last stretch
+    if (hasBeenPickedUp && !foilTouching && separatedStartMillis > 0) {
       sessionSeparatedTime  = millis() - separatedStartMillis;
       totalSeparatedTime   += sessionSeparatedTime;
       if (sessionCount < 50) {
@@ -53,7 +59,8 @@ void loop() {
         sessionCount++;
       }
     }
-Serial.println("\n====== SESSION END ======");
+
+    Serial.println("\n====== SESSION END ======");
     Serial.print("TOTAL_PICKUPS,");
     Serial.println(separationCount);
     Serial.print("TOTAL_SECONDS,");
@@ -77,14 +84,17 @@ Serial.println("\n====== SESSION END ======");
 
   foilTouching = (digitalRead(SENSOR_PIN) == LOW);
 
+  // --- Phone lifted off sensor ---
   if (!foilTouching && wasTouching) {
     separationCount++;
+    hasBeenPickedUp      = true;
     separatedStartMillis = millis();
     Serial.print(">> PICKED UP #");
     Serial.println(separationCount);
   }
 
-  if (foilTouching && !wasTouching) {
+  // --- Phone placed back on sensor (only after a real pickup) ---
+  if (foilTouching && !wasTouching && hasBeenPickedUp) {
     sessionSeparatedTime  = millis() - separatedStartMillis;
     totalSeparatedTime   += sessionSeparatedTime;
 

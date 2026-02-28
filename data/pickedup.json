@@ -23,5 +23,185 @@
     "id": 5,
     "iteration": 5,
     "time_held": 5.7
+  },
+  {
+    "id": 6,
+    "iteration": 1,
+    "time_held": 2.37
+  },
+  {
+    "id": 7,
+    "iteration": 2,
+    "time_held": 0.2
+  },
+  {
+    "id": 8,
+    "iteration": 1,
+    "time_held": 0.47
+  },
+  {
+    "id": 9,
+    "iteration": 1,
+    "time_held": 0.77
+  },
+  {
+    "id": 10,
+    "iteration": 1,
+    "time_held": 1.08
+  },
+  {
+    "id": 11,
+    "iteration": 1,
+    "time_held": 1.53
+  },
+  {
+    "id": 12,
+    "iteration": 1,
+    "time_held": 3.86
+  },
+  {
+    "id": 13,
+    "iteration": 2,
+    "time_held": 0.45
+  },
+  {
+    "id": 14,
+    "iteration": 1,
+    "time_held": 0.77
+  },
+  {
+    "id": 15,
+    "iteration": 2,
+    "time_held": 0.65
+  },
+  {
+    "id": 16,
+    "iteration": 1,
+    "time_held": 0.82
+  },
+  {
+    "id": 17,
+    "iteration": 2,
+    "time_held": 0.6
+  },
+  {
+    "id": 18,
+    "iteration": 1,
+    "time_held": 2.57
+  },
+  {
+    "id": 19,
+    "iteration": 1,
+    "time_held": 10.96
+  },
+  {
+    "id": 20,
+    "iteration": 1,
+    "time_held": 12.22
+  },
+  {
+    "id": 21,
+    "iteration": 1,
+    "time_held": 13.52
+  },
+  {
+    "id": 22,
+    "iteration": 1,
+    "time_held": 14.28
+  },
+  {
+    "id": 23,
+    "iteration": 1,
+    "time_held": 16.63
+  },
+  {
+    "id": 24,
+    "iteration": 2,
+    "time_held": 1.05
+  },
+  {
+    "id": 25,
+    "iteration": 3,
+    "time_held": 0.9
+  },
+  {
+    "id": 26,
+    "iteration": 4,
+    "time_held": 0.9
+  },
+  {
+    "id": 27,
+    "iteration": 1,
+    "time_held": 1.11
+  },
+  {
+    "id": 28,
+    "iteration": 2,
+    "time_held": 5.0
+  },
+  {
+    "id": 29,
+    "iteration": 1,
+    "time_held": 5.27
+  },
+  {
+    "id": 30,
+    "iteration": 1,
+    "time_held": 5.87
+  },
+  {
+    "id": 31,
+    "iteration": 1,
+    "time_held": 2.57
+  },
+  {
+    "id": 32,
+    "iteration": 2,
+    "time_held": 0.45
+  },
+  {
+    "id": 33,
+    "iteration": 3,
+    "time_held": 0.45
+  },
+  {
+    "id": 34,
+    "iteration": 4,
+    "time_held": 0.2
+  },
+  {
+    "id": 35,
+    "iteration": 1,
+    "time_held": 6.57
+  },
+  {
+    "id": 36,
+    "iteration": 2,
+    "time_held": 0.45
+  },
+  {
+    "id": 37,
+    "iteration": 3,
+    "time_held": 0.5
+  },
+  {
+    "id": 38,
+    "iteration": 4,
+    "time_held": 0.4
+  },
+  {
+    "id": 39,
+    "iteration": 5,
+    "time_held": 0.9
+  },
+  {
+    "id": 40,
+    "iteration": 6,
+    "time_held": 3.05
+  },
+  {
+    "id": 41,
+    "iteration": 7,
+    "time_held": 1.95
   }
 ]

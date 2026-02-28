@@ -24,7 +24,9 @@ Install: pip install opencv-python numpy
 import cv2
 import numpy as np
 import os
+import sys
 import time
+import signal
 import threading
 import subprocess
 from collections import deque
@@ -72,6 +74,13 @@ PRINT_EVERY_N_FRAMES   = 5      # print live stats every N frames (1 = every fra
 # ─────────────────────────────────────────────────────────────────
 
 stop_flag = threading.Event()
+
+# Signal handler for clean subprocess shutdown (used by manager.py)
+def _handle_signal(signum, frame):
+    stop_flag.set()
+
+signal.signal(signal.SIGINT, _handle_signal)
+signal.signal(signal.SIGTERM, _handle_signal)
 
 
 def ensure_output_folder():
@@ -149,8 +158,10 @@ def run():
     deleted_count = 0
     frame_count   = 0
 
-    listener = threading.Thread(target=console_listener, daemon=True)
-    listener.start()
+    # Only use the interactive console listener in standalone mode
+    if sys.stdin and sys.stdin.isatty():
+        listener = threading.Thread(target=console_listener, daemon=True)
+        listener.start()
 
     try:
         while not stop_flag.is_set():

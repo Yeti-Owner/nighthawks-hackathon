@@ -1,23 +1,20 @@
 """
-Manager Script — FastAPI backend for the Nighthawks Hackathon project.
+Manager — FastAPI backend for the Aurelius setup flow.
 
-Provides endpoints for a React/Next.js frontend to:
-  - List the known Python scripts
-  - Run one (or more) scripts concurrently as subprocesses
-  - Check on the status / output of any running script
-  - Stop a running script
+Endpoints:
+    POST /start/{step}         — Launch a setup step
+    GET  /status/{step}        — Poll for completion
+    POST /stop/{step}          — Kill a running step
 
 Start with:
     python -m uvicorn manager:app --reload --port 8000
 """
 
 import asyncio
-import os
 import sys
-import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -27,8 +24,7 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# Hard-coded registry of scripts that the frontend is allowed to run.
-# Keys are short identifiers sent by the frontend; values are relative paths.
+# step name → relative script path
 SCRIPTS = {
     "camera_select":  "cam_select/camera_select.py",
     "configlandmarks": "distraction_tracker/configlandmarks.py",
@@ -37,213 +33,116 @@ SCRIPTS = {
 }
 
 # ---------------------------------------------------------------------------
-# App setup
+# App
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Nighthawks Manager")
+app = FastAPI(title="Aurelius Manager")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # tighten in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ---------------------------------------------------------------------------
-# In-memory run tracking
+# State
 # ---------------------------------------------------------------------------
 
-# Each entry: {
-#   "run_id": str,
-#   "script": str,           # key from SCRIPTS
-#   "status": "running" | "completed" | "error" | "stopped",
-#   "exit_code": int | None,
-#   "stdout": str,
-#   "stderr": str,
-#   "process": asyncio.subprocess.Process,
-# }
-active_runs: dict[str, dict] = {}
+class StepState:
+    """Tracks a single running subprocess."""
+    __slots__ = ("process", "status", "exit_code")
 
+    def __init__(self, process: asyncio.subprocess.Process):
+        self.process = process
+        self.status = "running"
+        self.exit_code: int | None = None
+
+steps: dict[str, StepState] = {}
+
+
+async def _wait_for(step: str) -> None:
+    """Background task — waits for the subprocess to finish."""
+    state = steps.get(step)
+    if state is None:
+        return
+    await state.process.wait()
+    if state.status == "running":                       # not already stopped
+        state.exit_code = state.process.returncode
+        state.status = "completed" if state.exit_code == 0 else "error"
 
 # ---------------------------------------------------------------------------
-# Request / response models
+# Models
 # ---------------------------------------------------------------------------
 
-class RunRequest(BaseModel):
-    script: str  # one of the SCRIPTS keys
-
-
-class RunResponse(BaseModel):
-    run_id: str
-    script: str
-    message: str
-
-
-class StatusResponse(BaseModel):
-    run_id: str
-    script: str
+class StepResponse(BaseModel):
+    step: str
     status: str
     exit_code: int | None = None
-    stdout: str = ""
-    stderr: str = ""
-
-
-class StopResponse(BaseModel):
-    run_id: str
-    message: str
-
-
-class ScriptInfo(BaseModel):
-    key: str
-    path: str
-
-
-# ---------------------------------------------------------------------------
-# Background task: wait for process to finish and capture output
-# ---------------------------------------------------------------------------
-
-async def _watch_process(run_id: str) -> None:
-    """Wait for the subprocess to exit and record its output."""
-    entry = active_runs.get(run_id)
-    if entry is None:
-        return
-
-    proc: asyncio.subprocess.Process = entry["process"]
-    stdout_bytes, stderr_bytes = await proc.communicate()
-
-    # Only update if the process wasn't already marked as stopped
-    if entry["status"] == "running":
-        entry["status"] = "completed" if proc.returncode == 0 else "error"
-
-    entry["exit_code"] = proc.returncode
-    entry["stdout"] = stdout_bytes.decode(errors="replace") if stdout_bytes else ""
-    entry["stderr"] = stderr_bytes.decode(errors="replace") if stderr_bytes else ""
-
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/scripts", response_model=list[ScriptInfo])
-async def list_scripts():
-    """Return the list of scripts that can be run."""
-    return [
-        ScriptInfo(key=key, path=path)
-        for key, path in SCRIPTS.items()
-    ]
+@app.post("/start/{step}", response_model=StepResponse)
+async def start_step(step: str, headless: bool = Query(False)):
+    """Launch a setup step as a subprocess."""
+    if step not in SCRIPTS:
+        raise HTTPException(400, f"Unknown step '{step}'. Available: {list(SCRIPTS)}")
 
+    # Don't start if already running
+    if step in steps and steps[step].status == "running":
+        return StepResponse(step=step, status="running")
 
-@app.post("/run", response_model=RunResponse)
-async def run_script(req: RunRequest):
-    """
-    Launch a Python script as a subprocess.
+    script = BASE_DIR / SCRIPTS[step]
+    if not script.is_file():
+        raise HTTPException(404, f"Script not found: {script}")
 
-    The script keeps running until it finishes on its own or is explicitly
-    stopped via /stop.  Multiple scripts (or the same script more than once)
-    can run concurrently.
-    """
-    if req.script not in SCRIPTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown script '{req.script}'. "
-                   f"Available: {list(SCRIPTS.keys())}",
-        )
-
-    script_path = BASE_DIR / SCRIPTS[req.script]
-    if not script_path.is_file():
-        raise HTTPException(
-            status_code=404,
-            detail=f"Script file not found: {script_path}",
-        )
-
-    run_id = uuid.uuid4().hex[:12]
+    cmd = [sys.executable, str(script)]
+    if step == "study_tracker" and headless:
+        cmd.append("--headless")
 
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, str(script_path),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=str(script_path.parent),   # run inside the script's own folder
+        *cmd,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        cwd=str(script.parent),
     )
 
-    active_runs[run_id] = {
-        "run_id": run_id,
-        "script": req.script,
-        "status": "running",
-        "exit_code": None,
-        "stdout": "",
-        "stderr": "",
-        "process": proc,
-    }
+    steps[step] = StepState(proc)
+    asyncio.create_task(_wait_for(step))
 
-    # Fire-and-forget: watch the process in the background
-    asyncio.create_task(_watch_process(run_id))
-
-    return RunResponse(
-        run_id=run_id,
-        script=req.script,
-        message=f"Started '{req.script}' (pid {proc.pid})",
-    )
+    return StepResponse(step=step, status="running")
 
 
-@app.get("/status/{run_id}", response_model=StatusResponse)
-async def get_status(run_id: str):
-    """Check the current status of a run."""
-    entry = active_runs.get(run_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Run ID not found")
+@app.get("/status/{step}", response_model=StepResponse)
+async def get_status(step: str):
+    """Poll the current status of a step."""
+    if step not in SCRIPTS:
+        raise HTTPException(400, f"Unknown step '{step}'.")
 
-    return StatusResponse(
-        run_id=entry["run_id"],
-        script=entry["script"],
-        status=entry["status"],
-        exit_code=entry["exit_code"],
-        stdout=entry["stdout"],
-        stderr=entry["stderr"],
-    )
+    state = steps.get(step)
+    if state is None:
+        return StepResponse(step=step, status="idle")
+
+    return StepResponse(step=step, status=state.status, exit_code=state.exit_code)
 
 
-@app.post("/stop/{run_id}", response_model=StopResponse)
-async def stop_script(run_id: str):
-    """Kill a running subprocess."""
-    entry = active_runs.get(run_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Run ID not found")
+@app.post("/stop/{step}", response_model=StepResponse)
+async def stop_step(step: str):
+    """Kill a running step."""
+    state = steps.get(step)
+    if state is None or state.status != "running":
+        status = state.status if state else "idle"
+        return StepResponse(step=step, status=status)
 
-    if entry["status"] != "running":
-        return StopResponse(
-            run_id=run_id,
-            message=f"Script already {entry['status']}",
-        )
-
-    proc: asyncio.subprocess.Process = entry["process"]
-    proc.terminate()
+    state.process.terminate()
     try:
-        await asyncio.wait_for(proc.wait(), timeout=5)
+        await asyncio.wait_for(state.process.wait(), timeout=5)
     except asyncio.TimeoutError:
-        proc.kill()
+        state.process.kill()
 
-    entry["status"] = "stopped"
-    entry["exit_code"] = proc.returncode
-
-    return StopResponse(
-        run_id=run_id,
-        message=f"Script '{entry['script']}' stopped",
-    )
-
-
-@app.get("/active", response_model=list[StatusResponse])
-async def list_active():
-    """Return all runs that are currently in 'running' state."""
-    return [
-        StatusResponse(
-            run_id=e["run_id"],
-            script=e["script"],
-            status=e["status"],
-            exit_code=e["exit_code"],
-            stdout=e["stdout"],
-            stderr=e["stderr"],
-        )
-        for e in active_runs.values()
-        if e["status"] == "running"
-    ]
+    state.status = "stopped"
+    state.exit_code = state.process.returncode
+    return StepResponse(step=step, status="stopped", exit_code=state.exit_code)

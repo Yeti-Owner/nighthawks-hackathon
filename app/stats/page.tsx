@@ -9,6 +9,7 @@ import DistractionDonut from '../../components/charts/DistractionDonut';
 import TopAppsList from '../../components/TopAppsList';
 import SessionTable from '../../components/SessionTable';
 import PhonePickupsChart from '../../components/charts/PhonePickupsChart';
+import FaceDetectionChart from '../../components/charts/FaceDetectionChart';
 import {
     totalStudyMinutes,
     totalSessions,
@@ -17,6 +18,10 @@ import {
     totalPhonePickups,
     avgUnattendedMinutes,
     longestUnattended,
+    totalLookAways,
+    avgLookAwaySeconds,
+    longestLookAway,
+    totalSecondsDistracted,
 } from '../../lib/data';
 
 const periods = ['Today', 'All Time'];
@@ -27,12 +32,17 @@ export default function StatsDashboard() {
     const [activeFilter, setActiveFilter] = useState('All Filters');
 
     const phonePickupsRef = useRef<HTMLDivElement>(null);
+    const faceDetectionRef = useRef<HTMLDivElement>(null);
 
     function handleFilterClick(filter: string) {
         setActiveFilter(filter);
         if (filter === 'Phone Pickups') {
             setTimeout(() => {
                 phonePickupsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+        } else if (filter === 'Face Detection') {
+            setTimeout(() => {
+                faceDetectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 50);
         }
     }
@@ -294,6 +304,91 @@ export default function StatsDashboard() {
                                         )}
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    </LiquidCard>
+                </div>
+
+                {/* ─── Face Detection Section ─── */}
+                <div
+                    ref={faceDetectionRef}
+                    className="mb-[64px] animate-fade-up"
+                    style={{ animationDelay: '500ms', scrollMarginTop: '96px' }}
+                >
+                    <div className="flex items-center gap-4 mb-8">
+                        <div style={{ width: 3, height: 28, background: 'linear-gradient(180deg, #2C3E50, #1a252f)', borderRadius: 99 }} />
+                        <div>
+                            <span className="micro-label" style={{ color: '#2C3E50' }}>DISTRACTION ANALYSIS</span>
+                            <h2 style={{ fontFamily: 'var(--font-serif), serif', fontSize: 26, color: '#1A1A1A', letterSpacing: '-0.015em', margin: '2px 0 0' }}>
+                                Face Detection
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#2C3E50' }}>TOTAL LOOK-AWAYS</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{totalLookAways}</p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>times today</p>
+                        </LiquidCard>
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#B07A4A' }}>AVG. DURATION</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{avgLookAwaySeconds}<span style={{ fontSize: 18, color: '#888' }}>s</span></p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>per look-away</p>
+                        </LiquidCard>
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#C0392B' }}>LONGEST AWAY</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{longestLookAway}<span style={{ fontSize: 18, color: '#888' }}>s</span></p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>single distraction</p>
+                        </LiquidCard>
+                        <LiquidCard padding="p-6">
+                            <p className="micro-label mb-2" style={{ color: '#4A6741' }}>TOTAL DISTRACTED</p>
+                            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: '#1A1A1A', margin: 0 }}>{Math.floor(totalSecondsDistracted / 60)}<span style={{ fontSize: 18, color: '#888' }}>m {totalSecondsDistracted % 60}s</span></p>
+                            <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>total time off-screen</p>
+                        </LiquidCard>
+                    </div>
+
+                    <LiquidCard padding="p-8">
+                        <div className="flex items-start justify-between mb-6">
+                            <div>
+                                <h3 className="micro-label mb-1">Look-Away Timeline</h3>
+                                <p style={{ fontSize: 12, color: '#999', margin: 0 }}>Each spike = one distraction · Dashed line = your daily average</p>
+                            </div>
+                            <div style={{ background: 'rgba(44,62,80,0.08)', border: '1px solid rgba(44,62,80,0.2)', borderRadius: 8, padding: '6px 14px', fontSize: 11, color: '#2C3E50', fontFamily: 'var(--font-sans)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                                TODAY
+                            </div>
+                        </div>
+                        <FaceDetectionChart />
+
+                        <div style={{ display: 'flex', gap: 20, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4A6741' }} />
+                                <span style={{ fontSize: 11, color: '#888' }}>Low (&lt;20s)</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#B07A4A' }} />
+                                <span style={{ fontSize: 11, color: '#888' }}>Medium (20–60s)</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#C0392B' }} />
+                                <span style={{ fontSize: 11, color: '#888' }}>High (&gt;60s)</span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 20, borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 20 }}>
+                            <p className="micro-label mb-4">ALL LOOK-AWAY EVENTS</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {[...require('../../lib/data').faceAwayEvents].map((e: any, i: number) => {
+                                    const severity = e.durationSeconds > 60 ? 'High' : e.durationSeconds > 20 ? 'Medium' : 'Low';
+                                    const sColor = e.durationSeconds > 60 ? '#C0392B' : e.durationSeconds > 20 ? '#B07A4A' : '#4A6741';
+                                    return (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 12px', borderRadius: 8, background: i % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
+                                            <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A1A', width: 44, flexShrink: 0 }}>{e.time}</span>
+                                            <span style={{ fontSize: 12, color: '#2C3E50', flexShrink: 0 }}>👁 looked away for {e.durationSeconds}s</span>
+                                            <span style={{ fontSize: 11, color: sColor, fontWeight: 600 }}>{severity}</span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </LiquidCard>

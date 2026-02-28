@@ -110,3 +110,45 @@ export const avgUnattendedMinutes = Math.round(
 );
 export const longestUnattended = Math.max(...phonePickupEvents.map(e => e.minutesUnattended));
 
+// Face Detection Data
+export interface FaceAwayEvent {
+    time: string;          // when user looked away
+    durationSeconds: number; // how long they were away
+}
+
+export const faceAwayEvents: FaceAwayEvent[] = [
+    { time: "08:12", durationSeconds: 8 },
+    { time: "08:34", durationSeconds: 22 },
+    { time: "08:51", durationSeconds: 5 },
+    { time: "09:07", durationSeconds: 45 },
+    { time: "09:29", durationSeconds: 12 },
+    { time: "09:55", durationSeconds: 60 },
+    { time: "10:11", durationSeconds: 18 },
+    { time: "10:33", durationSeconds: 90 },
+    { time: "10:48", durationSeconds: 7 },
+    { time: "11:05", durationSeconds: 33 },
+    { time: "11:22", durationSeconds: 15 },
+    { time: "11:47", durationSeconds: 120 },
+    { time: "12:03", durationSeconds: 10 },
+    { time: "12:30", durationSeconds: 55 },
+    { time: "13:08", durationSeconds: 20 },
+    { time: "13:45", durationSeconds: 85 },
+    { time: "14:02", durationSeconds: 9 },
+    { time: "14:28", durationSeconds: 40 },
+    { time: "14:55", durationSeconds: 14 },
+    { time: "15:17", durationSeconds: 70 },
+    { time: "15:40", durationSeconds: 25 },
+    { time: "16:05", durationSeconds: 50 },
+    { time: "16:32", durationSeconds: 11 },
+    { time: "17:00", durationSeconds: 38 },
+    { time: "17:28", durationSeconds: 6 },
+];
+
+export const totalLookAways = faceAwayEvents.length;
+export const avgLookAwaySeconds = Math.round(
+    faceAwayEvents.reduce((sum, e) => sum + e.durationSeconds, 0) / faceAwayEvents.length
+);
+export const longestLookAway = Math.max(...faceAwayEvents.map(e => e.durationSeconds));
+export const totalSecondsDistracted = faceAwayEvents.reduce((sum, e) => sum + e.durationSeconds, 0);
+
+
